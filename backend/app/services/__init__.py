@@ -3,6 +3,7 @@ from app.services.organization_service import organization_service, Organization
 from app.services.case_service import case_service, CaseService
 from app.services.activity_service import activity_service, ActivityService
 from app.services.storage_service import storage_service, StorageService
+from app.services.ai_service import ai_service, AIService
 
 __all__ = [
     "user_service",
@@ -15,4 +16,6 @@ __all__ = [
     "ActivityService",
     "storage_service",
     "StorageService",
+    "ai_service",
+    "AIService",
 ]

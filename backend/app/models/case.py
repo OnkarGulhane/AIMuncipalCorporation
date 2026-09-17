@@ -105,6 +105,12 @@ class Case(BaseModel):
         cascade="all, delete-orphan",
         order_by="CaseAttachment.created_at.desc()",
     )
+    ai_analyses = relationship(
+        "AIAnalysis",
+        back_populates="case_rel",
+        cascade="all, delete-orphan",
+        order_by="AIAnalysis.created_at.desc()",
+    )
 
     def __repr__(self) -> str:
         return f"<Case {self.case_number}: {self.title} ({self.status})>"

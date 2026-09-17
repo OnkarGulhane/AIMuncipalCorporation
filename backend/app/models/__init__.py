@@ -12,6 +12,7 @@ from app.models.activity import (
     TaskStatus,
 )
 from app.models.attachment import CaseAttachment
+from app.models.ai_analysis import AIAnalysis
 
 __all__ = [
     "BaseModel",
@@ -33,4 +34,5 @@ __all__ = [
     "InternalNoteType",
     "TaskStatus",
     "CaseAttachment",
+    "AIAnalysis",
 ]

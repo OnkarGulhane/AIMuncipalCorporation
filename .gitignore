@@ -80,3 +80,8 @@ desktop.ini
 # Logs
 *.log
 logs/
+
+# Uploaded Evidence and Attachments
+uploads/
+backend/uploads/
+

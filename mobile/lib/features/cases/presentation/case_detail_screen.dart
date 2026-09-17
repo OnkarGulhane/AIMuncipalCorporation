@@ -8,6 +8,8 @@ import '../data/activity_models.dart';
 import '../data/activity_service.dart';
 import '../data/attachment_models.dart';
 import '../data/attachment_service.dart';
+import '../data/ai_models.dart';
+import '../data/ai_service.dart';
 
 class CaseDetailScreen extends StatefulWidget {
   final int caseId;
@@ -22,6 +24,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
   final CaseService _caseService = CaseService();
   final ActivityService _activityService = ActivityService();
   final AttachmentService _attachmentService = AttachmentService();
+  final AIService _aiService = AIService();
 
   late TabController _tabController;
   bool _isLoading = true;
@@ -35,6 +38,11 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
   List<CaseInvestigationModel> _investigations = [];
   List<CaseAttachmentModel> _attachments = [];
 
+  // AI Data
+  AIAnalysisModel? _aiAnalysis;
+  AICaseSummaryModel? _aiSummary;
+  bool _isAnalyzingAI = false;
+
   bool _isSendingMessage = false;
   final TextEditingController _messageController = TextEditingController();
 
@@ -43,7 +51,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
   @override
   void initState() {
     super.initState();
-    final tabCount = _isCitizen ? 3 : 6;
+    final tabCount = _isCitizen ? 3 : 7;
     _tabController = TabController(length: tabCount, vsync: this);
     _loadAllData();
   }
@@ -86,7 +94,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
       _attachments = attRes.data!;
     }
 
-    // Load staff-only activities
+    // Load staff-only activities & AI
     if (!_isCitizen) {
       final noteRes = await _activityService.getInternalNotes(widget.caseId);
       if (noteRes.isSuccess && noteRes.data != null) {
@@ -102,6 +110,17 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
       if (invRes.isSuccess && invRes.data != null) {
         _investigations = invRes.data!;
       }
+
+      // Load AI analysis and summary
+      final aiRes = await _aiService.getAnalysis(widget.caseId);
+      if (aiRes.isSuccess && aiRes.data != null) {
+        _aiAnalysis = aiRes.data;
+      }
+
+      final summaryRes = await _aiService.getCaseSummary(widget.caseId);
+      if (summaryRes.isSuccess && summaryRes.data != null) {
+        _aiSummary = summaryRes.data;
+      }
     }
 
     setState(() {
@@ -112,6 +131,164 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
   // ---------------------------------------------------------------------------
   // Action Handlers
   // ---------------------------------------------------------------------------
+
+  Future<void> _handleRunAIAnalysis() async {
+    setState(() => _isAnalyzingAI = true);
+    final res = await _aiService.runAnalysis(widget.caseId);
+    if (!mounted) return;
+    setState(() => _isAnalyzingAI = false);
+
+    if (res.isSuccess && res.data != null) {
+      setState(() => _aiAnalysis = res.data);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('AI triage and case analysis updated successfully.')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res.errorMessage ?? 'Failed to run AI analysis.')),
+      );
+    }
+  }
+
+  Future<void> _handleApplyAISuggestions() async {
+    final res = await _aiService.applySuggestions(
+      widget.caseId,
+      applyCategory: true,
+      applyPriority: true,
+      applyTeam: true,
+    );
+
+    if (res.isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Applied AI recommendations to live case!')),
+      );
+      _loadAllData();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res.errorMessage ?? 'Failed to apply suggestions.')),
+      );
+    }
+  }
+
+  Future<void> _showCommunicationCopilotDialog({String defaultType = 'information_request'}) async {
+    String draftType = defaultType;
+    final notesController = TextEditingController();
+    AIDraftModel? generatedDraft;
+    bool isGenerating = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.auto_awesome, color: AppColors.primary, size: 22),
+              SizedBox(width: 8),
+              Text('AI Communication Copilot', style: TextStyle(fontSize: 16)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: draftType,
+                  decoration: const InputDecoration(labelText: 'Draft Type', isDense: true),
+                  items: const [
+                    DropdownMenuItem(value: 'information_request', child: Text('Information Request')),
+                    DropdownMenuItem(value: 'progress_update', child: Text('Progress Update')),
+                    DropdownMenuItem(value: 'resolution_message', child: Text('Resolution Notification')),
+                    DropdownMenuItem(value: 'escalation_summary', child: Text('Internal Escalation Memo')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      setDialogState(() {
+                        draftType = val;
+                        generatedDraft = null;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: notesController,
+                  decoration: const InputDecoration(
+                    labelText: 'Context Instructions (Optional)',
+                    hintText: 'e.g. Ask specifically for house number',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ElevatedButton.icon(
+                  onPressed: isGenerating
+                      ? null
+                      : () async {
+                          setDialogState(() => isGenerating = true);
+                          final res = await _aiService.generateDraft(
+                            widget.caseId,
+                            draftType: draftType,
+                            contextNotes: notesController.text.trim().isNotEmpty
+                                ? notesController.text.trim()
+                                : null,
+                          );
+                          setDialogState(() {
+                            isGenerating = false;
+                            if (res.isSuccess) {
+                              generatedDraft = res.data;
+                            }
+                          });
+                        },
+                  icon: isGenerating
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.auto_fix_high, size: 18),
+                  label: const Text('Generate Draft with AI'),
+                  style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(40)),
+                ),
+                if (generatedDraft != null) ...[
+                  const SizedBox(height: 16),
+                  const Text('Generated Draft:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.textMuted)),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Subject: ${generatedDraft!.subject}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        const Divider(height: 12),
+                        Text(generatedDraft!.bodyText, style: const TextStyle(fontSize: 12, height: 1.3)),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close')),
+            if (generatedDraft != null)
+              ElevatedButton.icon(
+                onPressed: () {
+                  _messageController.text = generatedDraft!.bodyText;
+                  Navigator.of(ctx).pop();
+                  _tabController.animateTo(2); // Switch to Messages tab
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('AI draft copied into message box.')),
+                  );
+                },
+                icon: const Icon(Icons.copy, size: 16),
+                label: const Text('Insert into Message Box'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _handleSendMessage() async {
     final text = _messageController.text.trim();
@@ -469,6 +646,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
                 ]
               : const [
                   Tab(text: 'Overview'),
+                  Tab(text: '🤖 AI Copilot'),
                   Tab(text: 'Messages'),
                   Tab(text: '🔒 Internal Notes'),
                   Tab(text: 'Tasks'),
@@ -507,6 +685,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
                             ]
                           : [
                               _buildOverviewTab(),
+                              _buildAICopilotTab(),
                               _buildMessagesTab(),
                               _buildInternalNotesTab(),
                               _buildTasksTab(),
@@ -748,7 +927,298 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
   }
 
   // ---------------------------------------------------------------------------
-  // Tab 2: Messages (Citizen <-> Staff Communication)
+  // Tab 2: AI Copilot & Insights (Staff Only)
+  // ---------------------------------------------------------------------------
+  Widget _buildAICopilotTab() {
+    if (_aiAnalysis == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.auto_awesome, size: 48, color: AppColors.primary),
+              const SizedBox(height: 12),
+              const Text('AI Triage & Copilot Not Run Yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 6),
+              const Text('Run AI understanding to generate category, priority, and next-step recommendations.',
+                  textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+              const SizedBox(height: 18),
+              ElevatedButton.icon(
+                onPressed: _isAnalyzingAI ? null : _handleRunAIAnalysis,
+                icon: _isAnalyzingAI
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.play_arrow_rounded),
+                label: const Text('Run AI Analysis Now'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final confPct = (_aiAnalysis!.confidenceScore * 100).toInt();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Triage Summary Card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.primary.withOpacity(0.08), AppColors.secondary.withOpacity(0.06)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.auto_awesome, color: AppColors.primary, size: 20),
+                        const SizedBox(width: 8),
+                        Text('AI Triage Engine ($confPct% Confidence)',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.primary)),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, size: 18, color: AppColors.primary),
+                      tooltip: 'Re-run AI Analysis',
+                      onPressed: _handleRunAIAnalysis,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(_aiAnalysis!.summary ?? 'No summary available.', style: const TextStyle(fontSize: 13, height: 1.4)),
+                const Divider(height: 20),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    Chip(
+                      label: Text('Category: ${_aiAnalysis!.suggestedCategoryName ?? "General"}'),
+                      backgroundColor: AppColors.surface,
+                      labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                    Chip(
+                      label: Text('Priority: ${_aiAnalysis!.suggestedPriority?.toUpperCase() ?? "MEDIUM"}'),
+                      backgroundColor: AppColors.surface,
+                      labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.statusWarning),
+                    ),
+                    if (_aiAnalysis!.suggestedTeamName != null)
+                      Chip(
+                        label: Text('Team: ${_aiAnalysis!.suggestedTeamName}'),
+                        backgroundColor: AppColors.surface,
+                        labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.secondary),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: _handleApplyAISuggestions,
+                  icon: const Icon(Icons.done_all, size: 16),
+                  label: const Text('Apply AI Suggestions to Case'),
+                  style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(40)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Risk Alert Card (if any)
+          if (_aiAnalysis!.riskInsight != null) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.statusError.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.statusError.withOpacity(0.3)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: AppColors.statusError, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _aiAnalysis!.riskInsight!,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.statusError, height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Missing Information Section
+          if (_aiAnalysis!.missingInformation.isNotEmpty) ...[
+            const Text('Missing Information Flags', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ..._aiAnalysis!.missingInformation.map(
+                    (msg) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.help_outline, color: AppColors.statusWarning, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(msg, style: const TextStyle(fontSize: 12))),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: () => _showCommunicationCopilotDialog(defaultType: 'information_request'),
+                    icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                    label: const Text('Draft Query with Copilot'),
+                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(36)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Recommended Next Action Card
+          if (_aiAnalysis!.recommendedAction != null) ...[
+            const Text('Recommended Next Step', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.bolt, color: AppColors.secondary, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(_aiAnalysis!.recommendedAction!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Communication Copilot Triggers
+          const Text('Communication Copilot', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ActionChip(
+                avatar: const Icon(Icons.question_answer_outlined, size: 16),
+                label: const Text('Info Request Draft'),
+                onPressed: () => _showCommunicationCopilotDialog(defaultType: 'information_request'),
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.update, size: 16),
+                label: const Text('Progress Update Draft'),
+                onPressed: () => _showCommunicationCopilotDialog(defaultType: 'progress_update'),
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.task_alt, size: 16),
+                label: const Text('Resolution Draft'),
+                onPressed: () => _showCommunicationCopilotDialog(defaultType: 'resolution_message'),
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.warning_outlined, size: 16),
+                label: const Text('Escalation Memo'),
+                onPressed: () => _showCommunicationCopilotDialog(defaultType: 'escalation_summary'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Duplicate / Similar Complaints
+          if (_aiAnalysis!.duplicateCases.isNotEmpty) ...[
+            const Text('Potential Similar / Duplicate Complaints', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const SizedBox(height: 8),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _aiAnalysis!.duplicateCases.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, idx) {
+                final dup = _aiAnalysis!.duplicateCases[idx];
+                final matchPct = (dup.similarityScore * 100).toInt();
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text('$matchPct% Match',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppColors.primary)),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${dup.caseNumber}: ${dup.title}',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                            const SizedBox(height: 2),
+                            Text(dup.reason, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tab 3: Messages (Citizen <-> Staff Communication)
   // ---------------------------------------------------------------------------
   Widget _buildMessagesTab() {
     return Column(
@@ -865,7 +1335,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
   }
 
   // ---------------------------------------------------------------------------
-  // Tab 3: Internal Notes (Staff Only)
+  // Tab 4: Internal Notes (Staff Only)
   // ---------------------------------------------------------------------------
   Widget _buildInternalNotesTab() {
     return Column(
@@ -957,7 +1427,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
   }
 
   // ---------------------------------------------------------------------------
-  // Tab 4: Tasks (Staff Only Checklist)
+  // Tab 5: Tasks (Staff Only Checklist)
   // ---------------------------------------------------------------------------
   Widget _buildTasksTab() {
     return Column(
@@ -1023,7 +1493,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
   }
 
   // ---------------------------------------------------------------------------
-  // Tab 5: Investigation (Staff Only Findings)
+  // Tab 6: Investigation (Staff Only Findings)
   // ---------------------------------------------------------------------------
   Widget _buildInvestigationTab() {
     return Column(
@@ -1100,7 +1570,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
   }
 
   // ---------------------------------------------------------------------------
-  // Tab: Evidence & Files
+  // Tab 7: Evidence & Files
   // ---------------------------------------------------------------------------
   Widget _buildEvidenceTab() {
     return Column(

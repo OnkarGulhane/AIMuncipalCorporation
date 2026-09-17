@@ -334,6 +334,21 @@ def seed_database():
                     description="Photo of damaged road surface taken by citizen at intake.",
                     is_public_to_citizen=True,
                 ))
+                # 7. Seed AI Analysis
+                db.add(AIAnalysis(
+                    case_id=case1.id,
+                    suggested_category_id=pothole_cat.id if pothole_cat else None,
+                    suggested_priority="high",
+                    suggested_severity="major",
+                    confidence_score=0.91,
+                    summary="Severe road pothole reported near vegetable market with school bus impact. Immediate asphalt patching recommended.",
+                    key_details=json.dumps(["School bus route transit impacted.", "Active vehicular congestion."]),
+                    missing_information=json.dumps(["Exact distance from market gate."]),
+                    recommended_action="Deploy road maintenance unit with hot/cold asphalt mix and compacting roller.",
+                    suggested_team_id=team_id,
+                    risk_insight="HIGH PRIORITY: Location impact suggests compounding traffic disruption if delayed.",
+                    duplicate_cases=json.dumps([]),
+                ))
                 db.commit()
 
             # Case 2: Reported Garbage Dump
@@ -351,6 +366,22 @@ def seed_database():
                 ),
                 citizen_id=citizen.id,
             )
+            # AI Analysis for Case 2
+            db.add(AIAnalysis(
+                case_id=case2.id,
+                suggested_category_id=garbage_cat.id if garbage_cat else None,
+                suggested_priority="medium",
+                suggested_severity="moderate",
+                confidence_score=0.88,
+                summary="Solid waste overflow on pedestrian path. Foul odor spreading near Gandhi Library.",
+                key_details=json.dumps(["Public hygiene / vector-borne disease risk."]),
+                missing_information=json.dumps(["Is bin physically damaged or only full?"]),
+                recommended_action="Dispatch municipal refuse collection compactor vehicle and sanitize container area.",
+                suggested_team_id=None,
+                risk_insight=None,
+                duplicate_cases=json.dumps([]),
+            ))
+            db.commit()
 
             # Case 3: Resolution Proposed Streetlight
             light_cat = cat_map.get("STREETLIGHT_OUT")
@@ -377,6 +408,21 @@ def seed_database():
                     actor=operator,
                     resolution_notes="Replaced 45W LED driver and tightened cable terminal. Light fixture tested and operational.",
                 )
+                db.add(AIAnalysis(
+                    case_id=case3.id,
+                    suggested_category_id=light_cat.id if light_cat else None,
+                    suggested_priority="medium",
+                    suggested_severity="moderate",
+                    confidence_score=0.92,
+                    summary="Residential dark spot resolved. LED driver replaced by electrical squad.",
+                    key_details=json.dumps(["Nighttime pedestrian safety hazard."]),
+                    missing_information=json.dumps([]),
+                    recommended_action="Confirm illumination levels with citizen.",
+                    suggested_team_id=None,
+                    risk_insight=None,
+                    duplicate_cases=json.dumps([]),
+                ))
+                db.commit()
 
             logger.info("Sample demo cases seeded across reported, assigned, and resolution_proposed states.")
 

@@ -41,6 +41,14 @@ from app.schemas.activity import (
     CaseInvestigationResponse,
 )
 from app.schemas.attachment import CaseAttachmentResponse
+from app.schemas.ai import (
+    DuplicateCaseMatch,
+    AIAnalysisResponse,
+    AIDraftRequest,
+    AIDraftResponse,
+    AIApplySuggestionsRequest,
+    AICaseSummaryResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -87,4 +95,10 @@ __all__ = [
     "CaseInvestigationUpdate",
     "CaseInvestigationResponse",
     "CaseAttachmentResponse",
+    "DuplicateCaseMatch",
+    "AIAnalysisResponse",
+    "AIDraftRequest",
+    "AIDraftResponse",
+    "AIApplySuggestionsRequest",
+    "AICaseSummaryResponse",
 ]
