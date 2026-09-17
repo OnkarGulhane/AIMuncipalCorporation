@@ -40,6 +40,7 @@ from app.schemas.activity import (
     CaseInvestigationUpdate,
     CaseInvestigationResponse,
 )
+from app.schemas.attachment import CaseAttachmentResponse
 
 __all__ = [
     "HealthResponse",
@@ -85,4 +86,5 @@ __all__ = [
     "CaseInvestigationCreate",
     "CaseInvestigationUpdate",
     "CaseInvestigationResponse",
+    "CaseAttachmentResponse",
 ]

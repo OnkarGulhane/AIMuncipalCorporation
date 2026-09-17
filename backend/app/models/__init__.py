@@ -11,6 +11,7 @@ from app.models.activity import (
     InternalNoteType,
     TaskStatus,
 )
+from app.models.attachment import CaseAttachment
 
 __all__ = [
     "BaseModel",
@@ -31,4 +32,5 @@ __all__ = [
     "CaseMessageType",
     "InternalNoteType",
     "TaskStatus",
+    "CaseAttachment",
 ]

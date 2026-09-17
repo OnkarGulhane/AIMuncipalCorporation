@@ -99,6 +99,12 @@ class Case(BaseModel):
         cascade="all, delete-orphan",
         order_by="CaseInvestigation.created_at.desc()",
     )
+    attachments = relationship(
+        "CaseAttachment",
+        back_populates="case_rel",
+        cascade="all, delete-orphan",
+        order_by="CaseAttachment.created_at.desc()",
+    )
 
     def __repr__(self) -> str:
         return f"<Case {self.case_number}: {self.title} ({self.status})>"

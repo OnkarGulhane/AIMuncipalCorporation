@@ -321,6 +321,19 @@ def seed_database():
                     evidence_notes="Photos taken of damaged road base and culvert inlet.",
                     follow_up_requirements="Stormwater department needs to clear culvert to prevent recurrence.",
                 ))
+
+                # 6. Seed Case Attachment (Evidence)
+                db.add(CaseAttachment(
+                    case_id=case1.id,
+                    uploaded_by_id=citizen.id,
+                    original_filename="pothole_site_photo.jpg",
+                    stored_filename="demo_pothole.jpg",
+                    file_path=f"case_{case1.id}/demo_pothole.jpg",
+                    file_size=245760,
+                    content_type="image/jpeg",
+                    description="Photo of damaged road surface taken by citizen at intake.",
+                    is_public_to_citizen=True,
+                ))
                 db.commit()
 
             # Case 2: Reported Garbage Dump

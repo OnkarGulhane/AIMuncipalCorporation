@@ -6,6 +6,8 @@ import '../data/case_models.dart';
 import '../data/case_service.dart';
 import '../data/activity_models.dart';
 import '../data/activity_service.dart';
+import '../data/attachment_models.dart';
+import '../data/attachment_service.dart';
 
 class CaseDetailScreen extends StatefulWidget {
   final int caseId;
@@ -19,6 +21,7 @@ class CaseDetailScreen extends StatefulWidget {
 class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerProviderStateMixin {
   final CaseService _caseService = CaseService();
   final ActivityService _activityService = ActivityService();
+  final AttachmentService _attachmentService = AttachmentService();
 
   late TabController _tabController;
   bool _isLoading = true;
@@ -30,6 +33,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
   List<InternalNoteModel> _internalNotes = [];
   List<CaseTaskModel> _tasks = [];
   List<CaseInvestigationModel> _investigations = [];
+  List<CaseAttachmentModel> _attachments = [];
 
   bool _isSendingMessage = false;
   final TextEditingController _messageController = TextEditingController();
@@ -39,7 +43,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
   @override
   void initState() {
     super.initState();
-    final tabCount = _isCitizen ? 2 : 5;
+    final tabCount = _isCitizen ? 3 : 6;
     _tabController = TabController(length: tabCount, vsync: this);
     _loadAllData();
   }
@@ -74,6 +78,12 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
     final msgRes = await _activityService.getMessages(widget.caseId);
     if (msgRes.isSuccess && msgRes.data != null) {
       _messages = msgRes.data!;
+    }
+
+    // Load attachments
+    final attRes = await _attachmentService.getAttachments(widget.caseId);
+    if (attRes.isSuccess && attRes.data != null) {
+      _attachments = attRes.data!;
     }
 
     // Load staff-only activities
@@ -455,6 +465,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
               ? const [
                   Tab(text: 'Overview & Timeline'),
                   Tab(text: 'Messages & Updates'),
+                  Tab(text: 'Evidence & Files'),
                 ]
               : const [
                   Tab(text: 'Overview'),
@@ -462,6 +473,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
                   Tab(text: '🔒 Internal Notes'),
                   Tab(text: 'Tasks'),
                   Tab(text: 'Investigation'),
+                  Tab(text: 'Evidence & Files'),
                 ],
         ),
       ),
@@ -491,6 +503,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
                           ? [
                               _buildOverviewTab(),
                               _buildMessagesTab(),
+                              _buildEvidenceTab(),
                             ]
                           : [
                               _buildOverviewTab(),
@@ -498,6 +511,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
                               _buildInternalNotesTab(),
                               _buildTasksTab(),
                               _buildInvestigationTab(),
+                              _buildEvidenceTab(),
                             ],
                     ),
     );
@@ -1080,6 +1094,101 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
             label: const Text('Log Investigation Record'),
             style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
           ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tab: Evidence & Files
+  // ---------------------------------------------------------------------------
+  Widget _buildEvidenceTab() {
+    return Column(
+      children: [
+        Expanded(
+          child: _attachments.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.folder_open_outlined, size: 48, color: AppColors.textMuted.withOpacity(0.5)),
+                      const SizedBox(height: 8),
+                      const Text('No evidence or attachments uploaded yet.'),
+                      const SizedBox(height: 4),
+                      const Text('Photos and documents uploaded for this case will appear here.',
+                          style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                    ],
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _attachments.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, idx) {
+                    final att = _attachments[idx];
+                    return Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(att.fileIcon, color: AppColors.primary, size: 24),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  att.originalFilename,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                if (att.description != null && att.description!.isNotEmpty) ...[
+                                  Text(att.description!, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                  const SizedBox(height: 4),
+                                ],
+                                Row(
+                                  children: [
+                                    Text(
+                                      att.formattedSize,
+                                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '• ${att.uploadedByName ?? "User"}',
+                                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.download_rounded, color: AppColors.primary),
+                            tooltip: 'Download file',
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Downloading ${att.originalFilename}...')),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
         ),
       ],
     );

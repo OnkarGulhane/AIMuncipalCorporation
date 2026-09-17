@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     AI_API_BASE_URL: str = ""
 
     # Storage Settings
+    UPLOAD_DIR: str = "uploads"
+    MAX_FILE_SIZE_MB: int = 15
     STORAGE_BUCKET_NAME: str = "case-evidence"
     STORAGE_ENDPOINT_URL: str = ""
     STORAGE_ACCESS_KEY: str = ""
