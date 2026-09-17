@@ -6,9 +6,12 @@ sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "../
 
 from app.core.database import SessionLocal
 from app.core.logging import logger
+from app.models.case import Case, CaseStatus, CasePriority, CaseSeverity
 from app.models.user import UserRole
+from app.schemas.case import CaseCreate
 from app.schemas.organization import DepartmentCreate, TeamCreate, CategoryCreate
 from app.schemas.user import UserCreate
+from app.services.case_service import case_service
 from app.services.organization_service import organization_service
 from app.services.user_service import user_service
 
@@ -135,8 +138,8 @@ DEMO_USERS = [
 
 
 def seed_database():
-    """Seed departments, categories, teams, and safe demo accounts."""
-    logger.info("Starting safe demo database seeding (Departments, Categories, Users)...")
+    """Seed departments, categories, teams, safe demo accounts, and sample cases."""
+    logger.info("Starting safe demo database seeding (Departments, Categories, Users, Cases)...")
     db = SessionLocal()
 
     try:
@@ -159,6 +162,7 @@ def seed_database():
                 dept_map[dept_data["code"]] = existing
 
         # 2. Seed Categories
+        cat_map = {}
         for cat_data in DEFAULT_CATEGORIES:
             existing = organization_service.get_category_by_code(db, code=cat_data["code"])
             if not existing and cat_data["dept_code"] in dept_map:
@@ -173,9 +177,13 @@ def seed_database():
                         sla_hours=cat_data["sla_hours"],
                     ),
                 )
+                cat_map[cat_data["code"]] = created
                 logger.info(f"Created category: {created.name} (SLA: {created.sla_hours}h)")
+            else:
+                cat_map[cat_data["code"]] = existing
 
         # 3. Seed Users
+        user_map = {}
         for user_data in DEMO_USERS:
             existing = user_service.get_by_email(db, email=user_data["email"])
             dept_id = dept_map[user_data["dept_code"]].id if user_data.get("dept_code") and user_data["dept_code"] in dept_map else None
@@ -198,13 +206,17 @@ def seed_database():
                 created_user.department_id = dept_id
                 db.add(created_user)
                 db.commit()
+                user_map[user_data["role"].value] = created_user
                 logger.info(f"Created demo user: {user_data['email']} ({user_data['role'].value})")
+            else:
+                user_map[user_data["role"].value] = existing
 
         # 4. Seed Operational Team
+        team_id = None
         if "ROADS" in dept_map:
             roads_dept = dept_map["ROADS"]
-            team_lead = user_service.get_by_email(db, email="teamlead@demo.com")
-            operator = user_service.get_by_email(db, email="operator@demo.com")
+            team_lead = user_map.get(UserRole.TEAM_LEAD.value)
+            operator = user_map.get(UserRole.OPERATOR.value)
 
             existing_teams = organization_service.list_teams(db, department_id=roads_dept.id)
             if not existing_teams:
@@ -216,11 +228,89 @@ def seed_database():
                         leader_id=team_lead.id if team_lead else None,
                     ),
                 )
+                team_id = team.id
                 if operator:
                     operator.team_id = team.id
                     db.add(operator)
                     db.commit()
                 logger.info(f"Created operational team: {team.name}")
+            else:
+                team_id = existing_teams[0].id
+
+        # 5. Seed Sample Cases
+        citizen = user_map.get(UserRole.REQUESTER.value)
+        operator = user_map.get(UserRole.OPERATOR.value)
+
+        existing_cases = db.query(Case).count()
+        if existing_cases == 0 and citizen:
+            # Case 1: Assigned Pothole Complaint
+            pothole_cat = cat_map.get("POTHOLES")
+            case1 = case_service.create_case(
+                db,
+                case_in=CaseCreate(
+                    title="Deep Pothole near Main Market Corner",
+                    description="Severe 2-foot pothole causing heavy traffic slowdown and two-wheeler accidents near vegetable market gate.",
+                    category_id=pothole_cat.id if pothole_cat else None,
+                    department_id=dept_map["ROADS"].id if "ROADS" in dept_map else None,
+                    ward="Ward 12 - Shivaji Nagar",
+                    landmark="Near Main Vegetable Market Gate",
+                    priority=CasePriority.HIGH,
+                ),
+                citizen_id=citizen.id,
+            )
+            if operator:
+                case_service.update_assignment(
+                    db,
+                    case_obj=case1,
+                    actor=operator,
+                    assigned_to_id=operator.id,
+                    team_id=team_id,
+                    reason="Assigned to Ward 12 rapid response unit.",
+                )
+
+            # Case 2: Reported Garbage Dump
+            garbage_cat = cat_map.get("GARBAGE_OVERFLOW")
+            case2 = case_service.create_case(
+                db,
+                case_in=CaseCreate(
+                    title="Community Bin Overflowing on Gandhi Road",
+                    description="Waste container is full and overflowing onto pedestrian sidewalk for past 3 days. Foul smell spreading.",
+                    category_id=garbage_cat.id if garbage_cat else None,
+                    department_id=dept_map["WASTE"].id if "WASTE" in dept_map else None,
+                    ward="Ward 12 - Shivaji Nagar",
+                    landmark="Opposite Gandhi Library",
+                    priority=CasePriority.MEDIUM,
+                ),
+                citizen_id=citizen.id,
+            )
+
+            # Case 3: Resolution Proposed Streetlight
+            light_cat = cat_map.get("STREETLIGHT_OUT")
+            case3 = case_service.create_case(
+                db,
+                case_in=CaseCreate(
+                    title="Streetlight Pole #44 Dark on 5th Cross Road",
+                    description="Lamp fixture not turning on after sunset creating complete dark spot on residential corner.",
+                    category_id=light_cat.id if light_cat else None,
+                    department_id=dept_map["ELECTRICAL"].id if "ELECTRICAL" in dept_map else None,
+                    ward="Ward 12 - Shivaji Nagar",
+                    landmark="5th Cross Road Junction",
+                    priority=CasePriority.MEDIUM,
+                ),
+                citizen_id=citizen.id,
+            )
+            if operator:
+                case_service.update_assignment(db, case_obj=case3, actor=operator, assigned_to_id=operator.id)
+                case_service.update_case_status(db, case_obj=case3, new_status=CaseStatus.INVESTIGATED, actor=operator)
+                case_service.update_case_status(
+                    db,
+                    case_obj=case3,
+                    new_status=CaseStatus.RESOLUTION_PROPOSED,
+                    actor=operator,
+                    resolution_notes="Replaced 45W LED driver and tightened cable terminal. Light fixture tested and operational.",
+                )
+
+            logger.info("Sample demo cases seeded across reported, assigned, and resolution_proposed states.")
 
         logger.info("Database seeding completed successfully.")
     except Exception as e:

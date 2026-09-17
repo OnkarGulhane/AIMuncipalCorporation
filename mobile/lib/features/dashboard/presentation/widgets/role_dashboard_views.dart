@@ -1,254 +1,369 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/data/auth_models.dart';
+import '../../../cases/data/case_models.dart';
+import '../../../cases/data/case_service.dart';
+import '../../../cases/presentation/case_detail_screen.dart';
+import '../../../cases/presentation/create_case_screen.dart';
 
 // --- CITIZEN / REQUESTER VIEW ---
-class CitizenDashboardView extends StatelessWidget {
+class CitizenDashboardView extends StatefulWidget {
   final UserModel user;
 
   const CitizenDashboardView({super.key, required this.user});
 
   @override
+  State<CitizenDashboardView> createState() => _CitizenDashboardViewState();
+}
+
+class _CitizenDashboardViewState extends State<CitizenDashboardView> {
+  final CaseService _caseService = CaseService();
+  bool _isLoading = true;
+  List<CaseModel> _myCases = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCases();
+  }
+
+  Future<void> _loadCases() async {
+    setState(() => _isLoading = true);
+    final res = await _caseService.listCases();
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      if (res.isSuccess && res.data != null) {
+        _myCases = res.data!.items;
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16.0),
-      children: [
-        // Welcome Card
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppColors.primary, AppColors.primaryLight],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Namaste, ${user.fullName.split(" ").first}!',
-                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Reporting Zone: ${user.ward ?? "Shivaji Nagar - Ward 12"}',
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.add_photo_alternate, size: 20),
-                label: const Text('Report New Complaint'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        // Section Title
-        const Text(
-          'Quick Report Categories',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-        ),
-        const SizedBox(height: 12),
-
-        // Quick Category Grid
-        Row(
-          children: [
-            _buildCategoryTile(Icons.traffic, 'Road & Potholes', AppColors.primary),
-            const SizedBox(width: 10),
-            _buildCategoryTile(Icons.delete_outline, 'Garbage Overflow', AppColors.secondary),
-            const SizedBox(width: 10),
-            _buildCategoryTile(Icons.water_drop_outlined, 'Water Supply', const Color(0xFF0284C7)),
-          ],
-        ),
-        const SizedBox(height: 24),
-
-        const Text(
-          'My Active Cases',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-        ),
-        const SizedBox(height: 10),
-
-        _buildCaseCard(
-          caseNumber: 'MC-2026-0891',
-          title: 'Deep Pothole near Main Market Corner',
-          status: 'Investigating',
-          statusColor: AppColors.statusInfo,
-          date: 'Reported 3 hours ago',
-          department: 'Roads & Infrastructure',
-        ),
-        const SizedBox(height: 10),
-        _buildCaseCard(
-          caseNumber: 'MC-2026-0842',
-          title: 'Streetlight Blinking continuously',
-          status: 'Resolution Proposed',
-          statusColor: AppColors.statusSuccess,
-          date: 'Needs your confirmation',
-          department: 'Electrical & Street Lighting',
-          showConfirmAction: true,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategoryTile(IconData icon, String title, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.2)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 26),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCaseCard({
-    required String caseNumber,
-    required String title,
-    required String status,
-    required Color statusColor,
-    required String date,
-    required String department,
-    bool showConfirmAction = false,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return RefreshIndicator(
+      onRefresh: _loadCases,
+      child: ListView(
+        padding: const EdgeInsets.all(16.0),
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                caseNumber,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.textSecondary),
+          // Welcome Card
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.primary, AppColors.primaryLight],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  status,
-                  style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text('$department • $date', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
-          if (showConfirmAction) ...[
-            const SizedBox(height: 12),
-            Row(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.statusSuccess,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                    ),
-                    child: const Text('Confirm Resolution', style: TextStyle(fontSize: 12)),
-                  ),
+                Text(
+                  'Namaste, ${widget.user.fullName.split(" ").first}!',
+                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {},
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.statusError,
-                      side: const BorderSide(color: AppColors.statusError),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                    ),
-                    child: const Text('Reject / Reopen', style: TextStyle(fontSize: 12)),
+                const SizedBox(height: 4),
+                Text(
+                  'Reporting Ward: ${widget.user.ward ?? "Shivaji Nagar - Ward 12"}',
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const CreateCaseScreen()),
+                    ).then((_) => _loadCases());
+                  },
+                  icon: const Icon(Icons.add_photo_alternate, size: 20),
+                  label: const Text('Report New Complaint'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
               ],
             ),
-          ],
+          ),
+          const SizedBox(height: 20),
+
+          // Quick Report Categories
+          const Text(
+            'Quick Report Categories',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+          ),
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              _buildCategoryTile(Icons.traffic, 'Road & Potholes', AppColors.primary, 'Pothole'),
+              const SizedBox(width: 10),
+              _buildCategoryTile(Icons.delete_outline, 'Garbage Overflow', AppColors.secondary, 'Garbage'),
+              const SizedBox(width: 10),
+              _buildCategoryTile(Icons.water_drop_outlined, 'Water Supply', const Color(0xFF0284C7), 'Water'),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'My Active Complaints',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              ),
+              Text(
+                '${_myCases.length} Cases',
+                style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          if (_isLoading)
+            const Center(child: Padding(padding: EdgeInsets.all(24.0), child: CircularProgressIndicator()))
+          else if (_myCases.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: const Column(
+                children: [
+                  Icon(Icons.inbox_outlined, size: 36, color: AppColors.textMuted),
+                  SizedBox(height: 8),
+                  Text('No complaints reported yet.', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+                  Text('Use the button above to report a civic issue.', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                ],
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _myCases.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, idx) {
+                final item = _myCases[idx];
+                return InkWell(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => CaseDetailScreen(caseId: item.id)),
+                    ).then((_) => _loadCases());
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              item.caseNumber,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: item.status.badgeColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                item.status.displayName,
+                                style: TextStyle(color: item.status.badgeColor, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(item.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${item.ward ?? "Ward 12"} • Reported ${_formatDate(item.createdAt)}',
+                          style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime dt) {
+    return '${dt.day}/${dt.month}/${dt.year}';
+  }
+
+  Widget _buildCategoryTile(IconData icon, String title, Color color, String catTag) {
+    return Expanded(
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => CreateCaseScreen(initialCategory: catTag)),
+          ).then((_) => _loadCases());
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withOpacity(0.2)),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 26),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
 // --- CASE OPERATOR VIEW ---
-class OperatorDashboardView extends StatelessWidget {
+class OperatorDashboardView extends StatefulWidget {
   final UserModel user;
 
   const OperatorDashboardView({super.key, required this.user});
 
   @override
+  State<OperatorDashboardView> createState() => _OperatorDashboardViewState();
+}
+
+class _OperatorDashboardViewState extends State<OperatorDashboardView> {
+  final CaseService _caseService = CaseService();
+  bool _isLoading = true;
+  List<CaseModel> _queueCases = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadQueue();
+  }
+
+  Future<void> _loadQueue() async {
+    setState(() => _isLoading = true);
+    final res = await _caseService.listCases();
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      if (res.isSuccess && res.data != null) {
+        _queueCases = res.data!.items;
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16.0),
-      children: [
-        Row(
-          children: [
-            _buildMetricTile('Assigned Queue', '8', AppColors.primary),
-            const SizedBox(width: 10),
-            _buildMetricTile('High Priority', '3', AppColors.statusError),
-            const SizedBox(width: 10),
-            _buildMetricTile('SLA At-Risk', '1', AppColors.statusWarning),
-          ],
-        ),
-        const SizedBox(height: 20),
+    final assignedCount = _queueCases.where((c) => c.status == CaseStatus.assigned).length;
+    final highPriorityCount = _queueCases.where((c) => c.priority == CasePriority.high || c.priority == CasePriority.critical).length;
 
-        const Text(
-          'Active Case Queue',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-        ),
-        const SizedBox(height: 10),
+    return RefreshIndicator(
+      onRefresh: _loadQueue,
+      child: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          Row(
+            children: [
+              _buildMetricTile('Assigned Queue', assignedCount.toString(), AppColors.primary),
+              const SizedBox(width: 10),
+              _buildMetricTile('High / Critical', highPriorityCount.toString(), AppColors.statusError),
+              const SizedBox(width: 10),
+              _buildMetricTile('Total Cases', _queueCases.length.toString(), AppColors.secondary),
+            ],
+          ),
+          const SizedBox(height: 20),
 
-        _buildOperatorCaseItem(
-          caseNum: 'MC-2026-0891',
-          title: 'Road Cave-in on MG Road Junction',
-          ward: 'Ward 12',
-          priority: 'CRITICAL',
-          priorityColor: AppColors.statusError,
-          slaRemaining: '4 hrs remaining',
-          aiSummary: 'AI identified high public risk. Immediate road closure task suggested.',
-        ),
-        const SizedBox(height: 10),
-        _buildOperatorCaseItem(
-          caseNum: 'MC-2026-0887',
-          title: 'Pothole patch needed near school entrance',
-          ward: 'Ward 12',
-          priority: 'HIGH',
-          priorityColor: AppColors.statusWarning,
-          slaRemaining: '18 hrs remaining',
-          aiSummary: 'Matching 2 duplicate complaints. Asphalt batch dispatch recommended.',
-        ),
-      ],
+          const Text(
+            'Operational Case Queue',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+          ),
+          const SizedBox(height: 10),
+
+          if (_isLoading)
+            const Center(child: Padding(padding: EdgeInsets.all(24.0), child: CircularProgressIndicator()))
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _queueCases.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, idx) {
+                final item = _queueCases[idx];
+                return InkWell(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => CaseDetailScreen(caseId: item.id)),
+                    ).then((_) => _loadQueue());
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${item.caseNumber} • ${item.ward ?? "Ward 12"}',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: item.status.badgeColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                item.status.displayName,
+                                style: TextStyle(color: item.status.badgeColor, fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(item.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Priority: ${item.priority.name.toUpperCase()}',
+                                style: TextStyle(fontSize: 11, color: item.priority.color, fontWeight: FontWeight.bold)),
+                            const Text('Open Workspace →', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
     );
   }
 
@@ -268,69 +383,6 @@ class OperatorDashboardView extends StatelessWidget {
             Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: color)),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildOperatorCaseItem({
-    required String caseNum,
-    required String title,
-    required String ward,
-    required String priority,
-    required Color priorityColor,
-    required String slaRemaining,
-    required String aiSummary,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('$caseNum • $ward', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: priorityColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(priority, style: TextStyle(color: priorityColor, fontSize: 10, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.accent.withOpacity(0.06),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.auto_awesome, color: AppColors.accent, size: 16),
-                const SizedBox(width: 6),
-                Expanded(child: Text(aiSummary, style: const TextStyle(fontSize: 12, color: AppColors.textPrimary))),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(slaRemaining, style: TextStyle(fontSize: 11, color: AppColors.statusError, fontWeight: FontWeight.w600)),
-              TextButton(onPressed: () {}, child: const Text('Open Workspace →', style: TextStyle(fontSize: 12))),
-            ],
-          ),
-        ],
       ),
     );
   }

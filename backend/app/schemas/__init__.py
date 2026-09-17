@@ -16,6 +16,18 @@ from app.schemas.organization import (
     CategoryResponse,
     PermissionDescriptor,
 )
+from app.schemas.case import (
+    CaseBase,
+    CaseCreate,
+    CaseUpdate,
+    CaseStatusUpdate,
+    CaseAssignmentUpdate,
+    CaseResponse,
+    CaseListResponse,
+    CaseTimelineResponse,
+    ResolutionConfirmRequest,
+    ResolutionRejectRequest,
+)
 
 __all__ = [
     "HealthResponse",
@@ -41,4 +53,14 @@ __all__ = [
     "CategoryUpdate",
     "CategoryResponse",
     "PermissionDescriptor",
+    "CaseBase",
+    "CaseCreate",
+    "CaseUpdate",
+    "CaseStatusUpdate",
+    "CaseAssignmentUpdate",
+    "CaseResponse",
+    "CaseListResponse",
+    "CaseTimelineResponse",
+    "ResolutionConfirmRequest",
+    "ResolutionRejectRequest",
 ]
