@@ -108,6 +108,118 @@ class ApiClient {
     }
   }
 
+  Future<ApiResponse<T>> put<T>(
+    String path, {
+    Map<String, dynamic>? body,
+    String? token,
+    T Function(dynamic json)? fromJson,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl$path');
+      final response = await _client
+          .put(
+            uri,
+            headers: _buildHeaders(token: token),
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(AppConfig.requestTimeout);
+
+      return _handleResponse(response, fromJson);
+    } on SocketException {
+      return ApiResponse(
+        isSuccess: false,
+        errorMessage: 'Network error: Cannot reach the server. Please check your connection.',
+        statusCode: 0,
+      );
+    } on TimeoutException {
+      return ApiResponse(
+        isSuccess: false,
+        errorMessage: 'Connection timed out. The server took too long to respond.',
+        statusCode: 408,
+      );
+    } catch (e) {
+      return ApiResponse(
+        isSuccess: false,
+        errorMessage: 'An unexpected error occurred: ${e.toString()}',
+        statusCode: -1,
+      );
+    }
+  }
+
+  Future<ApiResponse<T>> patch<T>(
+    String path, {
+    Map<String, dynamic>? body,
+    String? token,
+    T Function(dynamic json)? fromJson,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl$path');
+      final response = await _client
+          .patch(
+            uri,
+            headers: _buildHeaders(token: token),
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(AppConfig.requestTimeout);
+
+      return _handleResponse(response, fromJson);
+    } on SocketException {
+      return ApiResponse(
+        isSuccess: false,
+        errorMessage: 'Network error: Cannot reach the server. Please check your connection.',
+        statusCode: 0,
+      );
+    } on TimeoutException {
+      return ApiResponse(
+        isSuccess: false,
+        errorMessage: 'Connection timed out. The server took too long to respond.',
+        statusCode: 408,
+      );
+    } catch (e) {
+      return ApiResponse(
+        isSuccess: false,
+        errorMessage: 'An unexpected error occurred: ${e.toString()}',
+        statusCode: -1,
+      );
+    }
+  }
+
+  Future<ApiResponse<T>> delete<T>(
+    String path, {
+    String? token,
+    T Function(dynamic json)? fromJson,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl$path');
+      final response = await _client
+          .delete(
+            uri,
+            headers: _buildHeaders(token: token),
+          )
+          .timeout(AppConfig.requestTimeout);
+
+      return _handleResponse(response, fromJson);
+    } on SocketException {
+      return ApiResponse(
+        isSuccess: false,
+        errorMessage: 'Network error: Cannot reach the server. Please check your connection.',
+        statusCode: 0,
+      );
+    } on TimeoutException {
+      return ApiResponse(
+        isSuccess: false,
+        errorMessage: 'Connection timed out. The server took too long to respond.',
+        statusCode: 408,
+      );
+    } catch (e) {
+      return ApiResponse(
+        isSuccess: false,
+        errorMessage: 'An unexpected error occurred: ${e.toString()}',
+        statusCode: -1,
+      );
+    }
+  }
+
   ApiResponse<T> _handleResponse<T>(
     http.Response response,
     T Function(dynamic json)? fromJson,

@@ -3,6 +3,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../auth/data/auth_models.dart';
 import '../../auth/data/auth_service.dart';
 import '../../auth/presentation/login_screen.dart';
+import '../../notifications/presentation/notifications_screen.dart';
 import 'widgets/role_dashboard_views.dart';
 
 class RoleShellScreen extends StatefulWidget {
@@ -30,6 +31,32 @@ class _RoleShellScreenState extends State<RoleShellScreen> {
       case UserRole.administrator:
         return AdminDashboardView(user: widget.user);
     }
+  }
+
+  Widget _getBodyForIndex(int index) {
+    if (index == 0) {
+      return _getDashboardView();
+    }
+    // Citizen Alerts tab (index 2)
+    if (widget.user.role == UserRole.requester && index == 2) {
+      return const NotificationsScreen();
+    }
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.construction, size: 48, color: AppColors.textMuted),
+          const SizedBox(height: 12),
+          Text(
+            '${widget.user.role.displayName} Tab: ${_getNavigationItems()[index].label}',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          const Text('Connected to Phase 3 Role Shell', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+        ],
+      ),
+    );
   }
 
   List<BottomNavigationBarItem> _getNavigationItems() {
@@ -96,29 +123,23 @@ class _RoleShellScreenState extends State<RoleShellScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            tooltip: 'Notifications',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sign Out',
             onPressed: _handleSignOut,
           ),
         ],
       ),
-      body: _selectedIndex == 0
-          ? _getDashboardView()
-          : Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.construction, size: 48, color: AppColors.textMuted),
-                  const SizedBox(height: 12),
-                  Text(
-                    '${widget.user.role.displayName} Tab: ${_getNavigationItems()[_selectedIndex].label}',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text('Connected to Phase 3 Role Shell', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
-                ],
-              ),
-            ),
+      body: _getBodyForIndex(_selectedIndex),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (idx) => setState(() => _selectedIndex = idx),
@@ -130,3 +151,4 @@ class _RoleShellScreenState extends State<RoleShellScreen> {
     );
   }
 }
+

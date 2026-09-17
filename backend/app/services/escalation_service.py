@@ -60,6 +60,19 @@ def create_case_escalation(
 
     db.commit()
     db.refresh(escalation)
+
+    from app.services.notification_service import notification_service
+    from app.models.notification import NotificationEventType
+
+    notification_service.dispatch_case_event_notifications(
+        db=db,
+        case=case,
+        event_type=NotificationEventType.ESCALATION.value,
+        title=f"Case Escalated: #{case.case_number}",
+        message=f"Case '{case.title}' escalated ({escalation.trigger_type}): {escalation.reason}",
+        exclude_user_id=current_user.id if current_user else None,
+    )
+
     return escalation
 
 
@@ -112,6 +125,25 @@ def update_case_escalation(
 
     db.commit()
     db.refresh(escalation)
+
+    if case:
+        from app.services.notification_service import notification_service
+        from app.models.notification import NotificationEventType
+
+        ev_type = (
+            NotificationEventType.ESCALATION_RESOLVED.value
+            if update_data.status == EscalationStatus.RESOLVED.value
+            else NotificationEventType.STATUS_CHANGED.value
+        )
+        notification_service.dispatch_case_event_notifications(
+            db=db,
+            case=case,
+            event_type=ev_type,
+            title=f"Escalation Updated: #{case.case_number}",
+            message=f"Escalation on case '{case.title}' status changed to {update_data.status}.",
+            exclude_user_id=current_user.id,
+        )
+
     return escalation
 
 

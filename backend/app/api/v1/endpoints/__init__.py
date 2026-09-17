@@ -1,4 +1,4 @@
-from app.api.v1.endpoints import health, auth, admin, organization, cases, activities, attachments, ai, sla, escalations
+from app.api.v1.endpoints import health, auth, admin, organization, cases, activities, attachments, ai, sla, escalations, notifications
 
-__all__ = ["health", "auth", "admin", "organization", "cases", "activities", "attachments", "ai", "sla", "escalations"]
+__all__ = ["health", "auth", "admin", "organization", "cases", "activities", "attachments", "ai", "sla", "escalations", "notifications"]
 

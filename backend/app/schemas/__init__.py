@@ -59,6 +59,13 @@ from app.schemas.escalation import (
     EscalationUpdate,
     EscalationResponse,
 )
+from app.schemas.notification import (
+    NotificationResponse,
+    NotificationListResponse,
+    NotificationPreferenceResponse,
+    NotificationPreferenceUpdate,
+    UnreadCountResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -117,5 +124,11 @@ __all__ = [
     "EscalationCreate",
     "EscalationUpdate",
     "EscalationResponse",
+    "NotificationResponse",
+    "NotificationListResponse",
+    "NotificationPreferenceResponse",
+    "NotificationPreferenceUpdate",
+    "UnreadCountResponse",
 ]
+
 

@@ -163,6 +163,17 @@ class CaseService:
             is_internal=False,
         )
 
+        from app.services.notification_service import notification_service
+        from app.models.notification import NotificationEventType
+
+        notification_service.dispatch_case_event_notifications(
+            db=db,
+            case=case_obj,
+            event_type=NotificationEventType.CASE_CREATED.value,
+            title=f"Complaint Registered: {case_number}",
+            message=f"Your complaint '{case_obj.title}' has been registered and queued for municipal triage.",
+        )
+
         return case_obj
 
     @staticmethod
@@ -274,6 +285,31 @@ class CaseService:
             is_internal=False,
         )
 
+        from app.services.notification_service import notification_service
+        from app.models.notification import NotificationEventType
+
+        event_type = NotificationEventType.STATUS_CHANGED.value
+        if target_status == CaseStatus.RESOLUTION_PROPOSED.value:
+            event_type = NotificationEventType.RESOLUTION_PROPOSED.value
+            msg = f"Municipal staff proposed resolution for '{case_obj.title}'. Please verify and confirm."
+        elif target_status in [CaseStatus.CLOSED.value, CaseStatus.CONFIRMED.value]:
+            event_type = NotificationEventType.CLOSED.value
+            msg = f"Case '{case_obj.title}' has been marked as {target_status}."
+        elif target_status == CaseStatus.WAITING_INFO.value:
+            event_type = NotificationEventType.INFORMATION_REQUESTED.value
+            msg = f"Additional information requested for case '{case_obj.title}'."
+        else:
+            msg = f"Case '{case_obj.title}' status moved to {target_status.replace('_', ' ').title()}."
+
+        notification_service.dispatch_case_event_notifications(
+            db=db,
+            case=case_obj,
+            event_type=event_type,
+            title=f"Case Status: {case_obj.case_number}",
+            message=msg,
+            exclude_user_id=actor.id,
+        )
+
         return case_obj
 
     @staticmethod
@@ -317,6 +353,18 @@ class CaseService:
             is_internal=False,
         )
 
+        from app.services.notification_service import notification_service
+        from app.models.notification import NotificationEventType
+
+        notification_service.dispatch_case_event_notifications(
+            db=db,
+            case=case_obj,
+            event_type=NotificationEventType.ASSIGNMENT.value,
+            title=f"Case Assigned: {case_obj.case_number}",
+            message=f"Case '{case_obj.title}' has been assigned to operations team.",
+            exclude_user_id=actor.id,
+        )
+
         return case_obj
 
     @staticmethod
@@ -345,6 +393,19 @@ class CaseService:
             notes=notes or "Citizen verified and confirmed satisfactory resolution.",
             is_internal=False,
         )
+
+        from app.services.notification_service import notification_service
+        from app.models.notification import NotificationEventType
+
+        notification_service.dispatch_case_event_notifications(
+            db=db,
+            case=case_obj,
+            event_type=NotificationEventType.CONFIRMED.value,
+            title=f"Resolution Confirmed: {case_obj.case_number}",
+            message=f"Citizen confirmed satisfactory resolution for case '{case_obj.title}'.",
+            exclude_user_id=citizen.id,
+        )
+
         return case_obj
 
     @staticmethod
@@ -374,7 +435,21 @@ class CaseService:
             notes=f"Citizen rejected resolution. Reason: {rejection_reason.strip()}",
             is_internal=False,
         )
+
+        from app.services.notification_service import notification_service
+        from app.models.notification import NotificationEventType
+
+        notification_service.dispatch_case_event_notifications(
+            db=db,
+            case=case_obj,
+            event_type=NotificationEventType.REOPENED.value,
+            title=f"Case Reopened: {case_obj.case_number}",
+            message=f"Citizen rejected proposed resolution. Reason: {rejection_reason.strip()}",
+            exclude_user_id=citizen.id,
+        )
+
         return case_obj
 
 
 case_service = CaseService()
+

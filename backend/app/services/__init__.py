@@ -17,6 +17,8 @@ from app.services.escalation_service import (
     update_case_escalation,
     build_escalation_response,
 )
+from app.services.email_service import email_service, EmailService
+from app.services.notification_service import notification_service, NotificationService
 
 __all__ = [
     "user_service",
@@ -40,5 +42,10 @@ __all__ = [
     "create_case_escalation",
     "update_case_escalation",
     "build_escalation_response",
+    "email_service",
+    "EmailService",
+    "notification_service",
+    "NotificationService",
 ]
+
 

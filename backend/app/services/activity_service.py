@@ -109,6 +109,33 @@ class ActivityService:
         db.commit()
         db.refresh(msg)
 
+        from app.services.notification_service import notification_service
+        from app.models.notification import NotificationEventType
+
+        if is_from_citizen:
+            notification_service.dispatch_case_event_notifications(
+                db=db,
+                case=case,
+                event_type=NotificationEventType.CITIZEN_RESPONSE.value,
+                title=f"Citizen Message on #{case.case_number}",
+                message=f"{user.full_name or 'Citizen'}: {data.message[:120]}",
+                exclude_user_id=user.id,
+            )
+        else:
+            event_type = (
+                NotificationEventType.INFORMATION_REQUESTED.value
+                if getattr(data, "message_type", None) == "request_info"
+                else NotificationEventType.STAFF_UPDATE.value
+            )
+            notification_service.dispatch_case_event_notifications(
+                db=db,
+                case=case,
+                event_type=event_type,
+                title=f"Staff Update on #{case.case_number}",
+                message=f"Municipal update: {data.message[:120]}",
+                exclude_user_id=user.id,
+            )
+
         return CaseMessageResponse(
             id=msg.id,
             case_id=msg.case_id,
@@ -230,7 +257,7 @@ class ActivityService:
         db: Session, case_id: int, data: CaseTaskCreate, user: User
     ) -> CaseTaskResponse:
         ActivityService._require_staff(user)
-        ActivityService._get_case_with_access(db, case_id, user)
+        case = ActivityService._get_case_with_access(db, case_id, user)
 
         task = CaseTask(
             case_id=case_id,
@@ -256,6 +283,19 @@ class ActivityService:
 
         db.commit()
         db.refresh(task)
+
+        if task.assigned_to_id and task.assigned_to_id != user.id:
+            from app.services.notification_service import notification_service
+            from app.models.notification import NotificationEventType
+
+            notification_service.create_notification(
+                db=db,
+                user_id=task.assigned_to_id,
+                title=f"Task Assigned: #{case.case_number}",
+                message=f"You have been assigned task '{task.title}' for case #{case.case_number}",
+                event_type=NotificationEventType.TASK_ASSIGNED.value,
+                case_id=case.id,
+            )
 
         return CaseTaskResponse(
             id=task.id,
