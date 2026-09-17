@@ -27,19 +27,19 @@
       <div class="role-selector-container">
         <label for="role-select">Switch Role:</label>
         <select id="role-select" onchange="switchRole(this.value)">
-          <option value="requester">👤 Citizen (Rahul Deshmukh)</option>
-          <option value="operator">👷 Field Operator (Sanjay)</option>
-          <option value="team_lead">👩‍💼 Team Lead (Anjali)</option>
-          <option value="manager" selected>👨‍💼 Ward Manager (Vikas)</option>
-          <option value="administrator">👑 Chief Admin (System HQ)</option>
+          <option value="requester">👤 Citizen (Aarav Sharma)</option>
+          <option value="operator">👷 Field Operator (Rohan)</option>
+          <option value="team_lead">👩‍💼 Team Lead (Priya)</option>
+          <option value="manager" selected>👨‍💼 Ward Manager (Vikram)</option>
+          <option value="administrator">👑 Chief Admin (Sneha)</option>
         </select>
       </div>
 
       <!-- User Profile Badge -->
       <div class="user-profile-badge" id="user-profile-badge">
-        <div class="user-avatar" id="user-avatar">VM</div>
+        <div class="user-avatar" id="user-avatar">VK</div>
         <div class="user-meta">
-          <div class="user-name" id="user-name">Vikas Ward Commissioner</div>
+          <div class="user-name" id="user-name">Vikram Kulkarni</div>
           <div class="user-role-tag" id="user-role-tag">WARD MANAGER</div>
         </div>
       </div>
@@ -49,7 +49,7 @@
         <span>+</span> Report Grievance
       </button>
 
-      <button class="btn btn-secondary btn-sm" onclick="triggerSlaSweep()" title="Run background SLA sweep">
+      <button class="btn btn-secondary btn-sm" onclick="triggerSlaSweep()" id="btn-sla-sweep" title="Run background SLA sweep">
         ⚡ Sweep SLAs
       </button>
 
@@ -65,10 +65,10 @@
     <aside class="app-sidebar">
       <nav class="sidebar-nav">
         <button class="nav-item active" onclick="showTab('dashboard')" id="nav-dashboard">
-          <span class="nav-icon">📊</span> Dashboard & Analytics
+          <span class="nav-icon">📊</span> <span id="nav-label-dashboard">Dashboard & Analytics</span>
         </button>
         <button class="nav-item" onclick="showTab('cases')" id="nav-cases">
-          <span class="nav-icon">📋</span> Case Management
+          <span class="nav-icon">📋</span> <span id="nav-label-cases">Case Management</span>
         </button>
         <button class="nav-item" onclick="showTab('escalations')" id="nav-escalations">
           <span class="nav-icon">⚠️</span> SLA & Escalations
@@ -79,7 +79,7 @@
         </button>
         <button class="nav-item" onclick="showTab('notifications')" id="nav-notifications">
           <span class="nav-icon">🔔</span> Notifications
-          <span class="nav-badge" id="notifications-count">3</span>
+          <span class="nav-badge" id="notifications-count">0</span>
         </button>
       </nav>
 
@@ -114,62 +114,62 @@
         <div class="metrics-grid">
           <div class="metric-card">
             <div class="metric-header">
-              <span class="metric-title">TOTAL COMPLAINTS</span>
-              <span class="metric-icon">📑</span>
+              <span class="metric-title" id="kpi-label-1">TOTAL COMPLAINTS</span>
+              <span class="metric-icon" id="kpi-icon-1">📑</span>
             </div>
             <div class="metric-value" id="kpi-total">5</div>
-            <div class="metric-sub text-success">Across all 5 wards</div>
+            <div class="metric-sub text-success" id="kpi-sub-1">Across all municipal sectors</div>
           </div>
 
           <div class="metric-card">
             <div class="metric-header">
-              <span class="metric-title">ACTIVE / IN-PROGRESS</span>
-              <span class="metric-icon">⚙️</span>
+              <span class="metric-title" id="kpi-label-2">ACTIVE / IN-PROGRESS</span>
+              <span class="metric-icon" id="kpi-icon-2">⚙️</span>
             </div>
             <div class="metric-value text-warning" id="kpi-active">3</div>
-            <div class="metric-sub">Field investigation & repair</div>
+            <div class="metric-sub" id="kpi-sub-2">Field investigation & repair</div>
           </div>
 
           <div class="metric-card">
             <div class="metric-header">
-              <span class="metric-title">SLA COMPLIANCE</span>
-              <span class="metric-icon">⏱️</span>
+              <span class="metric-title" id="kpi-label-3">SLA COMPLIANCE</span>
+              <span class="metric-icon" id="kpi-icon-3">⏱️</span>
             </div>
             <div class="metric-value text-accent" id="kpi-sla">80.0%</div>
-            <div class="metric-sub text-success">Target: >85%</div>
+            <div class="metric-sub text-success" id="kpi-sub-3">Target: >85%</div>
           </div>
 
           <div class="metric-card">
             <div class="metric-header">
-              <span class="metric-title">RESOLVED / CONFIRMED</span>
-              <span class="metric-icon">✅</span>
+              <span class="metric-title" id="kpi-label-4">RESOLVED / CONFIRMED</span>
+              <span class="metric-icon" id="kpi-icon-4">✅</span>
             </div>
             <div class="metric-value text-success" id="kpi-resolved">2</div>
-            <div class="metric-sub">Citizen verified closure</div>
+            <div class="metric-sub" id="kpi-sub-4">Citizen verified closure</div>
           </div>
         </div>
 
         <!-- AI Insights & Heatmap Row -->
-        <div class="two-col-grid">
+        <div class="two-col-grid" id="dashboard-details-grid">
           <!-- AI Insights Card -->
-          <div class="glass-panel">
+          <div class="glass-panel" id="panel-ai-insights">
             <div class="panel-header">
-              <div class="panel-title">🤖 AI Operational Intelligence & Hotspots</div>
-              <span class="badge badge-ai">LIVE AI SCAN</span>
+              <div class="panel-title" id="ai-insights-header">🤖 AI Operational Intelligence & Hotspots</div>
+              <span class="badge badge-ai" id="ai-insights-tag">LIVE AI SCAN</span>
             </div>
             <div class="insights-list" id="ai-insights-list">
               <!-- Loaded dynamically -->
             </div>
           </div>
 
-          <!-- Ward Distribution Table -->
-          <div class="glass-panel">
+          <!-- Ward Distribution / Team Table -->
+          <div class="glass-panel" id="panel-ward-metrics">
             <div class="panel-header">
-              <div class="panel-title">📍 Ward Performance & Risk Heatmap</div>
+              <div class="panel-title" id="panel-right-title">📍 Ward Performance & Risk Heatmap</div>
             </div>
             <div class="table-responsive">
               <table class="data-table">
-                <thead>
+                <thead id="right-table-head">
                   <tr>
                     <th>Ward</th>
                     <th>Total</th>
@@ -193,7 +193,7 @@
       <div class="tab-pane" id="tab-cases">
         <div class="pane-header">
           <div>
-            <h1 class="pane-title">Civic Complaints & Cases</h1>
+            <h1 class="pane-title" id="cases-pane-title">Civic Complaints & Cases</h1>
             <p class="pane-description">Multi-criteria filtering, lifecycle tracking, and AI triage details.</p>
           </div>
           <div class="search-bar-container">
@@ -342,7 +342,14 @@
           <label>Detailed Description *</label>
           <textarea id="case-in-description" rows="3" required placeholder="Describe the civic hazard, severity, and exact location specifics..."></textarea>
         </div>
+        
         <div class="form-row">
+          <div class="form-group">
+            <label>Category (Optional - AI will auto-triage if blank)</label>
+            <select id="case-in-category">
+              <option value="">🤖 Auto-Detect by AI Engine</option>
+            </select>
+          </div>
           <div class="form-group">
             <label>Ward *</label>
             <select id="case-in-ward" required>
@@ -350,14 +357,16 @@
               <option value="Ward 04 - East">Ward 04 - East</option>
               <option value="Ward 08 - South">Ward 08 - South</option>
               <option value="Ward 01 - Municipal HQ">Ward 01 - Municipal HQ</option>
+              <option value="Ward 03 - West">Ward 03 - West</option>
             </select>
           </div>
+        </div>
+
+        <div class="form-row">
           <div class="form-group">
-            <label>Landmark</label>
+            <label>Landmark / Specific Location</label>
             <input type="text" id="case-in-landmark" placeholder="e.g. Near Model High School Gate">
           </div>
-        </div>
-        <div class="form-row">
           <div class="form-group">
             <label>Priority</label>
             <select id="case-in-priority">
@@ -367,6 +376,9 @@
               <option value="low">Low</option>
             </select>
           </div>
+        </div>
+
+        <div class="form-row">
           <div class="form-group">
             <label>Severity</label>
             <select id="case-in-severity">
@@ -377,6 +389,7 @@
             </select>
           </div>
         </div>
+
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="closeModal('modal-new-case')">Cancel</button>
           <button type="submit" class="btn btn-primary">Submit Complaint</button>
@@ -403,16 +416,20 @@
           <!-- Left Column: Summary & Actions -->
           <div class="case-info-col">
             <div class="info-block">
-              <div class="info-label">STATUS</div>
-              <div id="detail-status-pill" class="badge">ASSIGNED</div>
+              <div class="info-label">STATUS & PRIORITY</div>
+              <div style="display: flex; gap: 8px; margin-top: 4px;">
+                <span id="detail-status-pill" class="badge">ASSIGNED</span>
+                <span id="detail-priority-pill" class="badge badge-medium">MEDIUM</span>
+              </div>
             </div>
             <div class="info-block">
-              <div class="info-label">LOCATION & WARD</div>
-              <div id="detail-location-text" class="info-value">Ward 12 - North</div>
+              <div class="info-label">CATEGORY & WARD</div>
+              <div id="detail-category-text" style="font-weight: 600; color: #F8FAFC;">Roads & Bridges - Pothole Repair</div>
+              <div id="detail-location-text" class="info-value" style="font-size: 12px; color: #94A3B8;">Ward 12 - North</div>
             </div>
             <div class="info-block">
               <div class="info-label">DESCRIPTION</div>
-              <div id="detail-desc-text" class="info-value">...</div>
+              <div id="detail-desc-text" class="info-value" style="font-size: 13px; line-height: 1.5;">...</div>
             </div>
 
             <!-- AI Copilot Insights Box -->
@@ -421,30 +438,47 @@
                 <span>🤖 AI Triage & Copilot Analysis</span>
                 <span class="badge badge-ai" id="detail-ai-confidence">88% CONFIDENCE</span>
               </div>
-              <div class="ai-box-body" id="detail-ai-body">
+              <div class="ai-box-body" id="detail-ai-body" style="font-size: 12px; color: #CBD5E1; margin: 6px 0;">
                 <div><strong>Suggested Category:</strong> <span id="detail-ai-cat">Pothole Repair</span></div>
                 <div><strong>Recommended Action:</strong> <span id="detail-ai-action">Dispatch Road Squad Alpha</span></div>
               </div>
-              <button class="btn btn-sm btn-outline" style="margin-top: 8px;" onclick="runAiTriageForCurrentCase()">⚡ Re-run AI Triage</button>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
+                <button class="btn btn-sm btn-outline" onclick="runAiTriageForCurrentCase()">⚡ Re-run AI</button>
+                <button class="btn btn-sm btn-outline" id="btn-apply-ai" onclick="applyAiSuggestionsForCurrentCase()">✨ Apply AI Suggestions</button>
+                <button class="btn btn-sm btn-outline" onclick="viewCaseSummaryForCurrentCase()">📄 AI Summary</button>
+              </div>
             </div>
 
             <!-- Role-Specific Action Buttons -->
-            <div class="actions-panel" id="detail-actions-panel">
+            <div class="actions-panel" id="detail-actions-panel" style="margin-top: 14px;">
               <!-- Dynamically rendered based on active role -->
             </div>
           </div>
 
           <!-- Right Column: Unified Timeline & Activity Stream -->
           <div class="case-timeline-col">
-            <h3 style="margin-top: 0; font-size: 15px; color: #94A3B8;">Unified Activity & History Timeline</h3>
+            <h3 style="margin-top: 0; font-size: 14px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">
+              Unified Activity & History Timeline
+            </h3>
             <div class="timeline-stream" id="detail-timeline-stream">
               <!-- Loaded dynamically -->
             </div>
 
-            <!-- Quick Message Form -->
-            <form class="chat-form" onsubmit="handleSendMessage(event)">
-              <input type="text" id="chat-input" placeholder="Type a message or response..." required>
-              <button type="submit" class="btn btn-primary btn-sm">Send</button>
+            <!-- Message Form & AI Draft Assist -->
+            <form class="chat-form" onsubmit="handleSendMessage(event)" style="display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <select id="chat-type-select" style="background: #1E293B; color: #FFF; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 4px 8px; font-size: 12px;">
+                  <option value="message">💬 Citizen Message</option>
+                  <option value="internal_note">🔒 Private Internal Note</option>
+                </select>
+                <button type="button" class="btn btn-outline btn-sm" onclick="triggerAiDraftCommunication()" style="font-size: 11px; padding: 4px 8px;">
+                  🤖 AI Draft Reply
+                </button>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <input type="text" id="chat-input" placeholder="Type a message or response..." required style="flex: 1;">
+                <button type="submit" class="btn btn-primary btn-sm">Send</button>
+              </div>
             </form>
           </div>
         </div>

@@ -100,12 +100,10 @@ if os.path.exists(portal_dir):
 
 
 @app.get("/", tags=["Root"])
-def root():
-    return RedirectResponse(url="/portal")
-
-
-@app.get("/api-info", tags=["Root"])
-def api_info():
+def root(request: Request):
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept and "application/json" not in accept:
+        return RedirectResponse(url="/portal")
     return {
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION,

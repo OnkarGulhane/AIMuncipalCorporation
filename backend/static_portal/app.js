@@ -7,39 +7,39 @@ const API_BASE = '/api/v1';
 // Pre-seeded Demo Role Accounts
 const DEMO_ROLES = {
   requester: {
-    email: 'citizen@demo.city.gov',
-    password: 'Password123',
-    name: 'Rahul Deshmukh',
+    email: 'citizen@demo.com',
+    password: 'Demo@1234',
+    name: 'Aarav Sharma',
     roleTag: 'CITIZEN',
-    avatar: 'RD'
+    avatar: 'AS'
   },
   operator: {
-    email: 'operator@demo.city.gov',
-    password: 'Password123',
-    name: 'Sanjay Field Operator',
+    email: 'operator@demo.com',
+    password: 'Demo@1234',
+    name: 'Rohan Deshmukh',
     roleTag: 'FIELD OPERATOR',
-    avatar: 'SO'
+    avatar: 'RD'
   },
   team_lead: {
-    email: 'teamlead@demo.city.gov',
-    password: 'Password123',
-    name: 'Anjali Lead Engineer',
+    email: 'teamlead@demo.com',
+    password: 'Demo@1234',
+    name: 'Priya Patil',
     roleTag: 'TEAM LEAD',
-    avatar: 'AL'
+    avatar: 'PP'
   },
   manager: {
-    email: 'manager@demo.city.gov',
-    password: 'Password123',
-    name: 'Vikas Ward Commissioner',
+    email: 'manager@demo.com',
+    password: 'Demo@1234',
+    name: 'Vikram Kulkarni',
     roleTag: 'WARD MANAGER',
-    avatar: 'VM'
+    avatar: 'VK'
   },
   administrator: {
-    email: 'admin@demo.city.gov',
-    password: 'Password123',
-    name: 'Chief Municipal Administrator',
+    email: 'admin@demo.com',
+    password: 'Demo@1234',
+    name: 'Sneha Joshi',
     roleTag: 'ADMINISTRATOR',
-    avatar: 'HQ'
+    avatar: 'SJ'
   }
 };
 
@@ -47,11 +47,13 @@ let currentRole = 'manager';
 let authToken = '';
 let currentOpenCaseId = null;
 let searchDebounceTimeout = null;
+let currentAiAnalysisData = null;
 
 // =============================================================================
 // INITIALIZATION
 // =============================================================================
 document.addEventListener('DOMContentLoaded', async () => {
+  await loadCategoryDropdownOptions();
   await switchRole('manager');
 });
 
@@ -69,6 +71,9 @@ async function switchRole(roleKey) {
   document.getElementById('user-role-tag').innerText = config.roleTag;
   document.getElementById('role-select').value = roleKey;
 
+  // Adapt Nav tabs visibility based on Role
+  updateRoleNavigationUI();
+
   // Authenticate and fetch JWT token
   try {
     const res = await fetch(`${API_BASE}/auth/login`, {
@@ -84,11 +89,58 @@ async function switchRole(roleKey) {
 
       // Refresh currently active tab
       loadCurrentTab();
+      updateNotificationsBadge();
     } else {
       console.error('Login failed for role:', roleKey);
     }
   } catch (err) {
     console.error('Error during role authentication:', err);
+  }
+}
+
+function updateRoleNavigationUI() {
+  const navEscalations = document.getElementById('nav-escalations');
+  const navAudit = document.getElementById('nav-audit');
+  const btnSweep = document.getElementById('btn-sla-sweep');
+  const chatTypeSelect = document.getElementById('chat-type-select');
+
+  if (currentRole === 'requester') {
+    if (navEscalations) navEscalations.style.display = 'none';
+    if (navAudit) navAudit.style.display = 'none';
+    if (btnSweep) btnSweep.style.display = 'none';
+    if (chatTypeSelect) chatTypeSelect.style.display = 'none';
+    document.getElementById('nav-label-dashboard').innerText = 'My Dashboard';
+    document.getElementById('nav-label-cases').innerText = 'My Complaints';
+  } else if (currentRole === 'operator') {
+    if (navEscalations) navEscalations.style.display = 'none';
+    if (navAudit) navAudit.style.display = 'none';
+    if (btnSweep) btnSweep.style.display = 'inline-flex';
+    if (chatTypeSelect) chatTypeSelect.style.display = 'block';
+    document.getElementById('nav-label-dashboard').innerText = 'Operator Queue';
+    document.getElementById('nav-label-cases').innerText = 'Assigned Cases';
+  } else if (currentRole === 'team_lead') {
+    if (navEscalations) navEscalations.style.display = 'flex';
+    if (navAudit) navAudit.style.display = 'none';
+    if (btnSweep) btnSweep.style.display = 'inline-flex';
+    if (chatTypeSelect) chatTypeSelect.style.display = 'block';
+    document.getElementById('nav-label-dashboard').innerText = 'Squad Workload';
+    document.getElementById('nav-label-cases').innerText = 'Team Cases';
+  } else {
+    // Manager & Administrator
+    if (navEscalations) navEscalations.style.display = 'flex';
+    if (navAudit) navAudit.style.display = 'flex';
+    if (btnSweep) btnSweep.style.display = 'inline-flex';
+    if (chatTypeSelect) chatTypeSelect.style.display = 'block';
+    document.getElementById('nav-label-dashboard').innerText = 'Executive Analytics';
+    document.getElementById('nav-label-cases').innerText = 'All Cases';
+  }
+
+  // Ensure an accessible tab is shown
+  const activePane = document.querySelector('.tab-pane.active');
+  if (activePane && (activePane.id === 'tab-audit' || activePane.id === 'tab-escalations')) {
+    if (currentRole === 'requester' || (currentRole === 'operator' && activePane.id === 'tab-audit')) {
+      showTab('dashboard');
+    }
   }
 }
 
@@ -128,59 +180,269 @@ function loadCurrentTab() {
 }
 
 // =============================================================================
-// 1. DASHBOARD & ANALYTICS
+// 1. DASHBOARD & ROLE-BASED ANALYTICS
 // =============================================================================
 async function loadDashboardData() {
   try {
-    const res = await fetch(`${API_BASE}/analytics/manager`, { headers: getAuthHeaders() });
-    if (!res.ok) return;
-    const data = await res.json();
-
-    document.getElementById('kpi-total').innerText = data.total_cases || 0;
-    document.getElementById('kpi-active').innerText = data.active_cases || 0;
-    document.getElementById('kpi-sla').innerText = `${data.sla_compliance_percent || 100}%`;
-    document.getElementById('kpi-resolved').innerText = data.resolved_cases || 0;
-
-    // Render AI Operational Insights
-    const insightsList = document.getElementById('ai-insights-list');
-    insightsList.innerHTML = '';
-    if (data.ai_operational_insights && data.ai_operational_insights.length > 0) {
-      data.ai_operational_insights.forEach(item => {
-        insightsList.innerHTML += `
-          <div class="ai-box" style="margin: 6px 0;">
-            <div class="ai-box-header">
-              <span>💡 ${item.title}</span>
-              <span class="badge badge-${item.severity}">${item.severity.toUpperCase()}</span>
-            </div>
-            <div style="font-size: 12px; color: #CBD5E1;">${item.description}</div>
-            <div style="font-size: 11px; color: #94A3B8; margin-top: 4px;"><strong>Action:</strong> ${item.recommendation}</div>
-          </div>
-        `;
-      });
+    if (currentRole === 'requester') {
+      await loadCitizenDashboard();
+    } else if (currentRole === 'operator') {
+      await loadOperatorDashboard();
+    } else if (currentRole === 'team_lead') {
+      await loadTeamLeadDashboard();
     } else {
-      insightsList.innerHTML = '<div style="color: #64748B; font-size: 13px;">All municipal operations running within healthy SLA boundaries.</div>';
-    }
-
-    // Render Ward Performance Table
-    const wardTbody = document.getElementById('ward-metrics-body');
-    wardTbody.innerHTML = '';
-    if (data.ward_metrics && data.ward_metrics.length > 0) {
-      data.ward_metrics.forEach(w => {
-        wardTbody.innerHTML += `
-          <tr>
-            <td><strong>${w.ward}</strong></td>
-            <td>${w.total_cases}</td>
-            <td><span class="badge badge-assigned">${w.active_cases}</span></td>
-            <td>${w.top_category || 'Road Repairs'}</td>
-            <td><span class="badge badge-${w.high_risk_cases > 0 ? 'high' : 'low'}">${w.high_risk_cases > 0 ? 'AT RISK' : 'HEALTHY'}</span></td>
-          </tr>
-        `;
-      });
-    } else {
-      wardTbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #64748B;">No ward metrics reported yet.</td></tr>';
+      await loadExecutiveDashboard();
     }
   } catch (err) {
     console.error('Error loading dashboard analytics:', err);
+  }
+}
+
+// 1.A Citizen Dashboard
+async function loadCitizenDashboard() {
+  document.getElementById('dashboard-title').innerText = 'Citizen Grievance Portal';
+  document.getElementById('dashboard-desc').innerText = 'Track the real-time lifecycle, field inspections, and AI resolution status of your complaints.';
+
+  document.getElementById('kpi-label-1').innerText = 'TOTAL REPORTED';
+  document.getElementById('kpi-label-2').innerText = 'ACTIVE / IN-PROGRESS';
+  document.getElementById('kpi-label-3').innerText = 'WAITING CITIZEN INFO';
+  document.getElementById('kpi-label-4').innerText = 'RESOLVED / CLOSED';
+
+  document.getElementById('kpi-sub-1').innerText = 'Your registered grievances';
+  document.getElementById('kpi-sub-2').innerText = 'Being handled by squad';
+  document.getElementById('kpi-sub-3').innerText = 'Requires your reply';
+  document.getElementById('kpi-sub-4').innerText = 'Verified solutions';
+
+  const res = await fetch(`${API_BASE}/analytics/citizen`, { headers: getAuthHeaders() });
+  if (!res.ok) return;
+  const data = await res.json();
+
+  document.getElementById('kpi-total').innerText = data.total_reported || 0;
+  document.getElementById('kpi-active').innerText = data.active_count || 0;
+  document.getElementById('kpi-sla').innerText = data.waiting_info_count || 0;
+  document.getElementById('kpi-resolved').innerText = data.resolved_count || 0;
+
+  // Render Citizen Recent Activity
+  document.getElementById('ai-insights-header').innerText = '📑 Your Grievance Activity Log';
+  document.getElementById('ai-insights-tag').innerText = 'TIMELINE';
+  const insightsList = document.getElementById('ai-insights-list');
+  insightsList.innerHTML = '';
+
+  if (data.recent_activity && data.recent_activity.length > 0) {
+    data.recent_activity.forEach(act => {
+      insightsList.innerHTML += `
+        <div class="ai-box" style="margin: 6px 0; border-left: 3px solid #3B82F6;">
+          <div class="ai-box-header">
+            <span><strong>${act.case_number}:</strong> ${act.title}</span>
+            <span style="font-size: 11px; color: #94A3B8;">${new Date(act.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          </div>
+          <div style="font-size: 12px; color: #CBD5E1;">${act.action} — ${act.notes || 'Status updated'}</div>
+        </div>
+      `;
+    });
+  } else {
+    insightsList.innerHTML = '<div style="color: #64748B; font-size: 13px; padding: 12px;">No activity yet. Click "+ Report Grievance" above to submit a new complaint.</div>';
+  }
+
+  // Right Panel for Citizen
+  document.getElementById('panel-right-title').innerText = '🏛️ Municipal Citizen Services';
+  const rightHead = document.getElementById('right-table-head');
+  rightHead.innerHTML = '<tr><th>Service Feature</th><th>Details</th></tr>';
+  const wardTbody = document.getElementById('ward-metrics-body');
+  wardTbody.innerHTML = `
+    <tr><td><strong>AI Auto-Triage</strong></td><td>Automated categorisation and priority routing within seconds.</td></tr>
+    <tr><td><strong>SLA Guarantee</strong></td><td>Standard 24h - 48h emergency response time across all 5 wards.</td></tr>
+    <tr><td><strong>Direct Chat</strong></td><td>Communicate directly with field squad operators and engineers.</td></tr>
+    <tr><td><strong>Citizen Closure</strong></td><td>You have the final authority to confirm or reject field repairs.</td></tr>
+  `;
+}
+
+// 1.B Field Operator Dashboard
+async function loadOperatorDashboard() {
+  document.getElementById('dashboard-title').innerText = 'Field Operations & Dispatch Queue';
+  document.getElementById('dashboard-desc').innerText = 'Manage your daily assigned tickets, field inspections, and citizen inquiries.';
+
+  document.getElementById('kpi-label-1').innerText = 'MY ACTIVE QUEUE';
+  document.getElementById('kpi-label-2').innerText = 'HIGH PRIORITY';
+  document.getElementById('kpi-label-3').innerText = 'WAITING CITIZEN INFO';
+  document.getElementById('kpi-label-4').innerText = 'COMPLETED THIS WEEK';
+
+  document.getElementById('kpi-sub-1').innerText = 'Currently assigned to you';
+  document.getElementById('kpi-sub-2').innerText = 'Requires urgent inspection';
+  document.getElementById('kpi-sub-3').innerText = 'Awaiting citizen reply';
+  document.getElementById('kpi-sub-4').innerText = 'Successfully resolved';
+
+  const res = await fetch(`${API_BASE}/analytics/operator`, { headers: getAuthHeaders() });
+  if (!res.ok) return;
+  const data = await res.json();
+
+  document.getElementById('kpi-total').innerText = data.assigned_active_count || 0;
+  document.getElementById('kpi-active').innerText = data.high_priority_count || 0;
+  document.getElementById('kpi-sla').innerText = data.waiting_info_count || 0;
+  document.getElementById('kpi-resolved').innerText = data.completed_this_week_count || 0;
+
+  // Insights / Action items for Operator
+  document.getElementById('ai-insights-header').innerText = '⚡ Operator Action Items & Tasks';
+  document.getElementById('ai-insights-tag').innerText = 'QUEUE STATUS';
+  const insightsList = document.getElementById('ai-insights-list');
+  insightsList.innerHTML = `
+    <div class="ai-box" style="margin: 6px 0;">
+      <div class="ai-box-header">
+        <span>📋 Pending Subtasks</span>
+        <span class="badge badge-assigned">${data.pending_tasks_count || 0} PENDING</span>
+      </div>
+      <div style="font-size: 12px; color: #CBD5E1;">Actionable tasks requiring field execution or photographic proof.</div>
+    </div>
+    <div class="ai-box" style="margin: 6px 0;">
+      <div class="ai-box-header">
+        <span>⚠️ Escalation Risk</span>
+        <span class="badge badge-${data.active_escalations_count > 0 ? 'high' : 'low'}">${data.active_escalations_count || 0} ACTIVE</span>
+      </div>
+      <div style="font-size: 12px; color: #CBD5E1;">Tickets at risk of SLA breach or requiring supervisor intervention.</div>
+    </div>
+  `;
+
+  // Right table for Operator
+  document.getElementById('panel-right-title').innerText = '📍 Field Quick Guidelines';
+  const rightHead = document.getElementById('right-table-head');
+  rightHead.innerHTML = '<tr><th>Workflow Step</th><th>Action Instruction</th></tr>';
+  const wardTbody = document.getElementById('ward-metrics-body');
+  wardTbody.innerHTML = `
+    <tr><td><strong>1. Claim Ticket</strong></td><td>Claim reported tickets from Case Management to begin work.</td></tr>
+    <tr><td><strong>2. Site Inspection</strong></td><td>Log field findings or request clarification from citizen.</td></tr>
+    <tr><td><strong>3. Propose Resolution</strong></td><td>Submit completed repair notes; citizen gets notified instantly.</td></tr>
+  `;
+}
+
+// 1.C Team Lead Dashboard
+async function loadTeamLeadDashboard() {
+  document.getElementById('dashboard-title').innerText = 'Squad Engineering Workload & Team Roster';
+  document.getElementById('dashboard-desc').innerText = 'Supervise squad ticket distribution, monitor SLA compliance, and dispatch operators.';
+
+  document.getElementById('kpi-label-1').innerText = 'SQUAD CASES';
+  document.getElementById('kpi-label-2').innerText = 'ACTIVE IN FIELD';
+  document.getElementById('kpi-label-3').innerText = 'SLA COMPLIANCE';
+  document.getElementById('kpi-label-4').innerText = 'UNASSIGNED QUEUE';
+
+  document.getElementById('kpi-sub-1').innerText = 'Total squad assigned';
+  document.getElementById('kpi-sub-2').innerText = 'Ongoing field jobs';
+  document.getElementById('kpi-sub-3').innerText = 'Target > 85%';
+  document.getElementById('kpi-sub-4').innerText = 'Pending assignment';
+
+  const res = await fetch(`${API_BASE}/analytics/team-lead`, { headers: getAuthHeaders() });
+  if (!res.ok) return;
+  const data = await res.json();
+
+  document.getElementById('kpi-total').innerText = data.total_cases || 0;
+  document.getElementById('kpi-active').innerText = data.active_cases || 0;
+  document.getElementById('kpi-sla').innerText = `${data.sla_compliance_percent || 100}%`;
+  document.getElementById('kpi-resolved').innerText = data.unassigned_cases || 0;
+
+  // AI & Squad overview
+  document.getElementById('ai-insights-header').innerText = '🤖 Squad AI Dispatch Insights';
+  document.getElementById('ai-insights-tag').innerText = 'TEAM INTEL';
+  const insightsList = document.getElementById('ai-insights-list');
+  insightsList.innerHTML = `
+    <div class="ai-box" style="margin: 6px 0;">
+      <div class="ai-box-header">
+        <span>Team: <strong>${data.team_name || 'Road Maintenance Squad Alpha'}</strong></span>
+        <span class="badge badge-assigned">${data.active_escalations || 0} Escalations</span>
+      </div>
+      <div style="font-size: 12px; color: #CBD5E1;">At-risk SLA cases: <strong>${data.at_risk_cases || 0}</strong>. Average resolution time: <strong>${data.avg_resolution_time_hours || 4.2} hours</strong>.</div>
+    </div>
+  `;
+
+  // Operator workload table
+  document.getElementById('panel-right-title').innerText = '👷 Operator Workload & Productivity';
+  const rightHead = document.getElementById('right-table-head');
+  rightHead.innerHTML = '<tr><th>Operator</th><th>Active</th><th>Completed</th><th>Overdue</th></tr>';
+  const wardTbody = document.getElementById('ward-metrics-body');
+  wardTbody.innerHTML = '';
+
+  if (data.operator_workloads && data.operator_workloads.length > 0) {
+    data.operator_workloads.forEach(op => {
+      wardTbody.innerHTML += `
+        <tr>
+          <td><strong>${op.operator_name}</strong></td>
+          <td><span class="badge badge-assigned">${op.active_cases}</span></td>
+          <td>${op.completed_cases}</td>
+          <td><span class="badge badge-${op.overdue_cases > 0 ? 'high' : 'low'}">${op.overdue_cases}</span></td>
+        </tr>
+      `;
+    });
+  } else {
+    wardTbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#64748B;">All squad operators are available.</td></tr>';
+  }
+}
+
+// 1.D Executive Dashboard (Manager & Admin)
+async function loadExecutiveDashboard() {
+  document.getElementById('dashboard-title').innerText = 'Executive Ward Overview';
+  document.getElementById('dashboard-desc').innerText = 'Real-time civic intelligence, SLA compliance, and AI operational anomaly alerts.';
+
+  document.getElementById('kpi-label-1').innerText = 'TOTAL COMPLAINTS';
+  document.getElementById('kpi-label-2').innerText = 'ACTIVE / IN-PROGRESS';
+  document.getElementById('kpi-label-3').innerText = 'SLA COMPLIANCE';
+  document.getElementById('kpi-label-4').innerText = 'RESOLVED / CONFIRMED';
+
+  document.getElementById('kpi-sub-1').innerText = 'Across all 5 wards';
+  document.getElementById('kpi-sub-2').innerText = 'Field investigation & repair';
+  document.getElementById('kpi-sub-3').innerText = 'Target: >85%';
+  document.getElementById('kpi-sub-4').innerText = 'Citizen verified closure';
+
+  const res = await fetch(`${API_BASE}/analytics/manager`, { headers: getAuthHeaders() });
+  if (!res.ok) return;
+  const data = await res.json();
+
+  document.getElementById('kpi-total').innerText = data.total_cases || 0;
+  document.getElementById('kpi-active').innerText = data.active_cases || 0;
+  document.getElementById('kpi-sla').innerText = `${data.sla_compliance_percent || 100}%`;
+  document.getElementById('kpi-resolved').innerText = data.resolved_cases || 0;
+
+  // Render AI Operational Insights
+  document.getElementById('ai-insights-header').innerText = '🤖 AI Operational Intelligence & Hotspots';
+  document.getElementById('ai-insights-tag').innerText = 'LIVE AI SCAN';
+  const insightsList = document.getElementById('ai-insights-list');
+  insightsList.innerHTML = '';
+
+  if (data.ai_operational_insights && data.ai_operational_insights.length > 0) {
+    data.ai_operational_insights.forEach(item => {
+      insightsList.innerHTML += `
+        <div class="ai-box" style="margin: 6px 0;">
+          <div class="ai-box-header">
+            <span>💡 ${item.title}</span>
+            <span class="badge badge-${item.severity}">${item.severity.toUpperCase()}</span>
+          </div>
+          <div style="font-size: 12px; color: #CBD5E1;">${item.description}</div>
+          <div style="font-size: 11px; color: #94A3B8; margin-top: 4px;"><strong>Action:</strong> ${item.recommendation}</div>
+        </div>
+      `;
+    });
+  } else {
+    insightsList.innerHTML = '<div style="color: #64748B; font-size: 13px; padding: 12px;">All municipal operations running within healthy SLA boundaries.</div>';
+  }
+
+  // Render Ward Performance Table
+  document.getElementById('panel-right-title').innerText = '📍 Ward Performance & Risk Heatmap';
+  const rightHead = document.getElementById('right-table-head');
+  rightHead.innerHTML = '<tr><th>Ward</th><th>Total</th><th>Active</th><th>Top Issue</th><th>Risk</th></tr>';
+  const wardTbody = document.getElementById('ward-metrics-body');
+  wardTbody.innerHTML = '';
+
+  if (data.ward_metrics && data.ward_metrics.length > 0) {
+    data.ward_metrics.forEach(w => {
+      wardTbody.innerHTML += `
+        <tr>
+          <td><strong>${w.ward}</strong></td>
+          <td>${w.total_cases}</td>
+          <td><span class="badge badge-assigned">${w.active_cases}</span></td>
+          <td>${w.top_category || 'Road Repairs'}</td>
+          <td><span class="badge badge-${w.high_risk_cases > 0 ? 'high' : 'low'}">${w.high_risk_cases > 0 ? 'AT RISK' : 'HEALTHY'}</span></td>
+        </tr>
+      `;
+    });
+  } else {
+    wardTbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #64748B;">No ward metrics reported yet.</td></tr>';
   }
 }
 
@@ -222,7 +484,7 @@ async function loadCases() {
             <div style="font-size: 11px; color: #94A3B8; margin-top: 2px;">${c.description.substring(0, 60)}...</div>
           </td>
           <td>
-            <div>${c.ward || 'Ward 12'}</div>
+            <div>${c.ward || 'Ward 12 - North'}</div>
             <div style="font-size: 10px; color: #64748B;">${c.landmark || ''}</div>
           </td>
           <td><span class="badge badge-${c.priority}">${c.priority.toUpperCase()}</span></td>
@@ -240,7 +502,7 @@ async function loadCases() {
 }
 
 // =============================================================================
-// 3. CASE DETAIL & UNIFIED TIMELINE
+// 3. CASE DETAIL, AI COPILOT & UNIFIED TIMELINE
 // =============================================================================
 async function openCaseDetail(caseId) {
   currentOpenCaseId = caseId;
@@ -254,11 +516,16 @@ async function openCaseDetail(caseId) {
       document.getElementById('detail-case-number').innerText = c.case_number;
       document.getElementById('detail-case-title').innerText = c.title;
       document.getElementById('detail-desc-text').innerText = c.description;
-      document.getElementById('detail-location-text').innerText = `${c.ward} | ${c.landmark || ''} (${c.address || ''})`;
+      document.getElementById('detail-location-text').innerText = `${c.ward} | ${c.landmark || 'No landmark specified'}`;
+      document.getElementById('detail-category-text').innerText = c.category ? `${c.category.name}` : 'General Municipal Works';
 
       const statusPill = document.getElementById('detail-status-pill');
       statusPill.className = `badge badge-${c.status}`;
       statusPill.innerText = c.status.replace('_', ' ').toUpperCase();
+
+      const priorityPill = document.getElementById('detail-priority-pill');
+      priorityPill.className = `badge badge-${c.priority}`;
+      priorityPill.innerText = c.priority.toUpperCase();
 
       renderRoleActions(c);
     }
@@ -267,6 +534,7 @@ async function openCaseDetail(caseId) {
     const aiRes = await fetch(`${API_BASE}/cases/${caseId}/ai-analysis`, { headers: getAuthHeaders() });
     if (aiRes.ok) {
       const ai = await aiRes.json();
+      currentAiAnalysisData = ai;
       document.getElementById('detail-ai-confidence').innerText = `${Math.round(ai.confidence_score * 100)}% CONFIDENCE`;
       document.getElementById('detail-ai-cat').innerText = ai.suggested_category_name || 'Public Works';
       document.getElementById('detail-ai-action').innerText = ai.recommended_action || 'Assign to squad';
@@ -289,19 +557,25 @@ async function loadCaseTimeline(caseId) {
     stream.innerHTML = '';
 
     if (!data.timeline || data.timeline.length === 0) {
-      stream.innerHTML = '<div style="color: #64748B; font-size: 12px;">No activity recorded yet.</div>';
+      stream.innerHTML = '<div style="color: #64748B; font-size: 12px; padding: 12px;">No activity recorded yet.</div>';
       return;
     }
 
     data.timeline.forEach(item => {
       const timeStr = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const isInternal = item.is_internal;
       stream.innerHTML += `
-        <div class="timeline-card">
+        <div class="timeline-card" style="${isInternal ? 'border-left: 3px solid #8B5CF6; background: rgba(139, 92, 246, 0.05);' : ''}">
           <div class="timeline-card-header">
-            <span class="timeline-actor">${item.actor_name || 'System / AI'} <span style="font-size: 10px; color: #38BDF8;">(${item.actor_role || item.event_type})</span></span>
+            <span class="timeline-actor">
+              ${item.actor_name || 'System / AI'} 
+              <span style="font-size: 10px; color: ${isInternal ? '#A78BFA' : '#38BDF8'};">
+                (${isInternal ? '🔒 INTERNAL NOTE' : item.actor_role || item.event_type})
+              </span>
+            </span>
             <span class="timeline-time">${timeStr}</span>
           </div>
-          <div class="timeline-text"><strong>${item.title}:</strong> ${item.description}</div>
+          <div class="timeline-text"><strong>${item.title}:</strong> ${item.description || ''}</div>
         </div>
       `;
     });
@@ -324,6 +598,12 @@ function renderRoleActions(caseObj) {
           ❌ Reject & Reopen Complaint
         </button>
       `;
+    } else {
+      panel.innerHTML = `
+        <div style="font-size: 12px; color: #94A3B8; background: rgba(255,255,255,0.03); padding: 10px; border-radius: 8px;">
+          ℹ️ Your complaint is currently in <strong>${caseObj.status.replace('_', ' ').toUpperCase()}</strong> status. You will receive an alert once field operations propose a resolution.
+        </div>
+      `;
     }
   } else if (currentRole === 'operator') {
     if (caseObj.status === 'reported') {
@@ -332,20 +612,26 @@ function renderRoleActions(caseObj) {
           👷 Take Ownership & Claim Case
         </button>
       `;
-    } else if (caseObj.status === 'assigned' || caseObj.status === 'investigated') {
+    } else if (caseObj.status === 'assigned' || caseObj.status === 'investigated' || caseObj.status === 'action_taken') {
       panel.innerHTML = `
         <button class="btn btn-primary btn-sm" onclick="proposeResolution(${caseObj.id})" style="width: 100%; margin-bottom: 6px;">
           ✨ Propose Field Resolution
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="logFieldInvestigation(${caseObj.id})" style="width: 100%; margin-bottom: 6px;">
+          🔍 Log Field Investigation
         </button>
         <button class="btn btn-outline btn-sm" onclick="requestClarification(${caseObj.id})" style="width: 100%;">
           ❓ Request Info from Citizen
         </button>
       `;
     }
-  } else if (currentRole === 'team_lead' || currentRole === 'manager') {
+  } else if (currentRole === 'team_lead' || currentRole === 'manager' || currentRole === 'administrator') {
     panel.innerHTML = `
-      <button class="btn btn-secondary btn-sm" onclick="manualEscalateCase(${caseObj.id})" style="width: 100%;">
+      <button class="btn btn-secondary btn-sm" onclick="manualEscalateCase(${caseObj.id})" style="width: 100%; margin-bottom: 6px;">
         ⚠️ Trigger SLA Escalation
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="reassignCasePrompt(${caseObj.id})" style="width: 100%;">
+        👥 Assign / Transfer Squad
       </button>
     `;
   }
@@ -353,7 +639,7 @@ function renderRoleActions(caseObj) {
 
 // Case Action Handlers
 async function confirmResolution(caseId) {
-  const notes = prompt('Enter citizen feedback (e.g., Verified on site, road repaired):', 'Inspected and verified. Road surface is smooth and safe now.');
+  const notes = prompt('Enter citizen verification feedback:', 'Inspected and verified on site. Road repaired cleanly.');
   if (notes === null) return;
 
   const res = await fetch(`${API_BASE}/cases/${caseId}/confirm-resolution`, {
@@ -362,14 +648,18 @@ async function confirmResolution(caseId) {
     body: JSON.stringify({ notes })
   });
   if (res.ok) {
-    alert('Resolution confirmed! Case successfully closed.');
+    alert('Resolution confirmed! Complaint closed.');
     openCaseDetail(caseId);
     loadCases();
+    loadDashboardData();
+  } else {
+    const err = await res.json();
+    alert(`Error: ${err.detail || 'Could not confirm resolution'}`);
   }
 }
 
 async function rejectResolution(caseId) {
-  const reason = prompt('Enter reason for rejecting resolution:', 'Issue still persists and requires further repair.');
+  const reason = prompt('Enter reason for rejecting resolution:', 'Issue still persists and requires additional asphalt compaction.');
   if (!reason) return;
 
   const res = await fetch(`${API_BASE}/cases/${caseId}/reject-resolution`, {
@@ -381,6 +671,10 @@ async function rejectResolution(caseId) {
     alert('Case rejected and reopened for inspection.');
     openCaseDetail(caseId);
     loadCases();
+    loadDashboardData();
+  } else {
+    const err = await res.json();
+    alert(`Error: ${err.detail || 'Could not reject resolution'}`);
   }
 }
 
@@ -398,7 +692,7 @@ async function claimCase(caseId) {
 }
 
 async function proposeResolution(caseId) {
-  const notes = prompt('Enter field repair notes:', 'Pothole filled with hot-mix asphalt and compacted level with road.');
+  const notes = prompt('Enter field repair notes:', 'Pothole filled with hot-mix asphalt and compacted level with road surface.');
   if (!notes) return;
 
   const res = await fetch(`${API_BASE}/cases/${caseId}/status`, {
@@ -410,6 +704,28 @@ async function proposeResolution(caseId) {
     alert('Resolution proposed to citizen!');
     openCaseDetail(caseId);
     loadCases();
+  } else {
+    const err = await res.json();
+    alert(`Error: ${err.detail || 'Could not propose resolution'}`);
+  }
+}
+
+async function logFieldInvestigation(caseId) {
+  const findings = prompt('Enter site inspection findings:', 'Subsurface water erosion detected around stormwater pipe.');
+  if (!findings) return;
+
+  const res = await fetch(`${API_BASE}/cases/${caseId}/investigations`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+      observations: 'On-site engineering assessment completed.',
+      findings: findings,
+      actions_taken: 'Site barricaded with safety cones; gravel layer reinforced.'
+    })
+  });
+  if (res.ok) {
+    alert('Field investigation logged in unified timeline!');
+    loadCaseTimeline(caseId);
   }
 }
 
@@ -445,9 +761,27 @@ async function manualEscalateCase(caseId) {
     alert('Escalation created!');
     openCaseDetail(caseId);
     loadCases();
+    updateNotificationsBadge();
   }
 }
 
+async function reassignCasePrompt(caseId) {
+  const squad = prompt('Enter squad ID or department ID to transfer:', '1');
+  if (!squad) return;
+
+  const res = await fetch(`${API_BASE}/cases/${caseId}/assignment`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ department_id: parseInt(squad), reason: 'Supervisor transfer' })
+  });
+  if (res.ok) {
+    alert('Case reassigned!');
+    openCaseDetail(caseId);
+    loadCases();
+  }
+}
+
+// AI Copilot Actions
 async function runAiTriageForCurrentCase() {
   if (!currentOpenCaseId) return;
   const res = await fetch(`${API_BASE}/cases/${currentOpenCaseId}/ai-analysis`, {
@@ -455,7 +789,60 @@ async function runAiTriageForCurrentCase() {
     headers: getAuthHeaders()
   });
   if (res.ok) {
+    alert('AI Triage re-calculated with latest telemetry!');
     openCaseDetail(currentOpenCaseId);
+  }
+}
+
+async function applyAiSuggestionsForCurrentCase() {
+  if (!currentOpenCaseId || !currentAiAnalysisData) return;
+
+  const res = await fetch(`${API_BASE}/cases/${currentOpenCaseId}/ai/apply-suggestions`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+      apply_category: true,
+      apply_priority: true,
+      apply_team: true
+    })
+  });
+
+  if (res.ok) {
+    alert('AI Suggested Category & Priority applied to live case!');
+    openCaseDetail(currentOpenCaseId);
+    loadCases();
+  } else {
+    const err = await res.json();
+    alert(`Error: ${err.detail || 'Failed to apply AI suggestions'}`);
+  }
+}
+
+async function viewCaseSummaryForCurrentCase() {
+  if (!currentOpenCaseId) return;
+  const res = await fetch(`${API_BASE}/cases/${currentOpenCaseId}/summary`, { headers: getAuthHeaders() });
+  if (res.ok) {
+    const summary = await res.json();
+    const blockers = (summary.unresolved_blockers && summary.unresolved_blockers.length > 0) 
+      ? summary.unresolved_blockers.join('\n- ') 
+      : 'None (Workflow on track)';
+    alert(`📄 AI Comprehensive Case Journey Summary:\n\nCase: ${summary.case_number} (${summary.current_stage})\n\n${summary.summary}\n\nUnresolved Blockers / Items:\n- ${blockers}\n\nLast Activity: ${summary.last_activity || 'N/A'}`);
+  }
+}
+
+async function triggerAiDraftCommunication() {
+  if (!currentOpenCaseId) return;
+  const res = await fetch(`${API_BASE}/cases/${currentOpenCaseId}/ai/draft-communication`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+      draft_type: 'progress_update',
+      context_notes: 'Site inspection completed and materials dispatched.'
+    })
+  });
+
+  if (res.ok) {
+    const draft = await res.json();
+    document.getElementById('chat-input').value = draft.body_text || draft.subject;
   }
 }
 
@@ -465,11 +852,23 @@ async function handleSendMessage(e) {
   const message = input.value.trim();
   if (!message || !currentOpenCaseId) return;
 
-  const res = await fetch(`${API_BASE}/cases/${currentOpenCaseId}/messages`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ message, message_type: 'general' })
-  });
+  const typeSelect = document.getElementById('chat-type-select');
+  const isInternalNote = typeSelect && typeSelect.value === 'internal_note' && currentRole !== 'requester';
+
+  let res;
+  if (isInternalNote) {
+    res = await fetch(`${API_BASE}/cases/${currentOpenCaseId}/internal-notes`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ note: message, note_type: 'general' })
+    });
+  } else {
+    res = await fetch(`${API_BASE}/cases/${currentOpenCaseId}/messages`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ message, message_type: 'general' })
+    });
+  }
 
   if (res.ok) {
     input.value = '';
@@ -480,27 +879,53 @@ async function handleSendMessage(e) {
 // =============================================================================
 // 4. REPORT NEW GRIEVANCE
 // =============================================================================
+async function loadCategoryDropdownOptions() {
+  try {
+    const res = await fetch(`${API_BASE}/organization/categories`);
+    if (!res.ok) return;
+    const cats = await res.json();
+    const select = document.getElementById('case-in-category');
+    if (!select) return;
+
+    cats.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.innerText = `${c.name} (${c.sla_hours}h SLA)`;
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    console.warn('Could not preload categories:', err);
+  }
+}
+
 async function handleCreateCase(e) {
   e.preventDefault();
   const title = document.getElementById('case-in-title').value;
   const description = document.getElementById('case-in-description').value;
+  const categoryIdVal = document.getElementById('case-in-category').value;
   const ward = document.getElementById('case-in-ward').value;
   const landmark = document.getElementById('case-in-landmark').value;
   const priority = document.getElementById('case-in-priority').value;
   const severity = document.getElementById('case-in-severity').value;
 
+  const payload = {
+    title,
+    description,
+    ward,
+    landmark,
+    priority,
+    severity
+  };
+
+  if (categoryIdVal) {
+    payload.category_id = parseInt(categoryIdVal);
+  }
+
   try {
     const res = await fetch(`${API_BASE}/cases`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({
-        title,
-        description,
-        ward,
-        landmark,
-        priority,
-        severity
-      })
+      body: JSON.stringify(payload)
     });
 
     if (res.ok) {
@@ -509,6 +934,7 @@ async function handleCreateCase(e) {
       document.getElementById('new-case-form').reset();
       alert(`Complaint registered successfully! Case Number: ${created.case_number}`);
       loadCases();
+      loadDashboardData();
     } else {
       const err = await res.json();
       alert(`Error creating complaint: ${err.detail || 'Validation error'}`);
@@ -569,6 +995,7 @@ async function resolveEscalation(caseId, escalationId) {
   if (res.ok) {
     alert('Escalation marked as resolved!');
     loadEscalations();
+    loadDashboardData();
   }
 }
 
@@ -590,11 +1017,11 @@ async function loadAuditLogs() {
       tbody.innerHTML += `
         <tr>
           <td style="font-size: 11px; color: #94A3B8;">${new Date(l.created_at).toLocaleString()}</td>
-          <td>User #${l.actor_id || 'System'}</td>
+          <td><strong>${l.actor_name || 'System'}</strong> <span style="font-size: 10px; color: #64748B;">(${l.actor_role || 'system'})</span></td>
           <td><strong>${l.action}</strong></td>
-          <td><span class="badge">${l.resource_type} #${l.resource_id}</span></td>
-          <td style="font-size: 12px;">${l.details || ''}</td>
-          <td>${l.is_ai_action ? '<span class="badge badge-ai">AI ENGINE</span>' : '<span style="color: #64748B;">Human</span>'}</td>
+          <td><span class="badge">${l.case_number || 'Case #' + l.case_id}</span></td>
+          <td style="font-size: 12px;">${l.notes || l.old_value + ' ➔ ' + l.new_value || ''}</td>
+          <td>${l.actor_role === 'ai_engine' ? '<span class="badge badge-ai">AI ENGINE</span>' : '<span style="color: #64748B;">Human</span>'}</td>
         </tr>
       `;
     });
@@ -607,12 +1034,14 @@ async function loadNotifications() {
   try {
     const res = await fetch(`${API_BASE}/notifications`, { headers: getAuthHeaders() });
     if (!res.ok) return;
-    const items = await res.json();
+    const data = await res.json();
+    const items = data.items || [];
 
     const list = document.getElementById('notifications-list');
     list.innerHTML = '';
 
-    document.getElementById('notifications-count').innerText = items.filter(n => !n.is_read).length;
+    const unreadCount = data.unread_count !== undefined ? data.unread_count : items.filter(n => !n.is_read).length;
+    document.getElementById('notifications-count').innerText = unreadCount;
 
     if (items.length === 0) {
       list.innerHTML = '<div style="text-align: center; color: #64748B; padding: 24px;">No notifications.</div>';
@@ -635,9 +1064,19 @@ async function loadNotifications() {
   }
 }
 
+async function updateNotificationsBadge() {
+  try {
+    const res = await fetch(`${API_BASE}/notifications/unread-count`, { headers: getAuthHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      document.getElementById('notifications-count').innerText = data.unread_count || 0;
+    }
+  } catch (e) {}
+}
+
 async function markAllNotificationsRead() {
-  await fetch(`${API_BASE}/notifications/read-all`, {
-    method: 'PATCH',
+  await fetch(`${API_BASE}/notifications/mark-all-read`, {
+    method: 'POST',
     headers: getAuthHeaders()
   });
   loadNotifications();

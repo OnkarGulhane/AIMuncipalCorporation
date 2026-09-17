@@ -164,7 +164,7 @@ def get_audit_logs(
     limit: int = 50,
     offset: int = 0,
     db: Session = Depends(get_db),
-    admin: User = AdminRequired,
+    current_user: User = Depends(require_roles([UserRole.ADMINISTRATOR, UserRole.MANAGER])),
 ):
     """Query comprehensive timeline history across all municipal cases."""
     from app.models.case import CaseTimeline, Case
