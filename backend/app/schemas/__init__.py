@@ -28,6 +28,18 @@ from app.schemas.case import (
     ResolutionConfirmRequest,
     ResolutionRejectRequest,
 )
+from app.schemas.activity import (
+    CaseMessageCreate,
+    CaseMessageResponse,
+    InternalNoteCreate,
+    InternalNoteResponse,
+    CaseTaskCreate,
+    CaseTaskUpdate,
+    CaseTaskResponse,
+    CaseInvestigationCreate,
+    CaseInvestigationUpdate,
+    CaseInvestigationResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -63,4 +75,14 @@ __all__ = [
     "CaseTimelineResponse",
     "ResolutionConfirmRequest",
     "ResolutionRejectRequest",
+    "CaseMessageCreate",
+    "CaseMessageResponse",
+    "InternalNoteCreate",
+    "InternalNoteResponse",
+    "CaseTaskCreate",
+    "CaseTaskUpdate",
+    "CaseTaskResponse",
+    "CaseInvestigationCreate",
+    "CaseInvestigationUpdate",
+    "CaseInvestigationResponse",
 ]

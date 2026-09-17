@@ -75,6 +75,30 @@ class Case(BaseModel):
         cascade="all, delete-orphan",
         order_by="CaseTimeline.created_at.desc()",
     )
+    messages = relationship(
+        "CaseMessage",
+        back_populates="case_rel",
+        cascade="all, delete-orphan",
+        order_by="CaseMessage.created_at.asc()",
+    )
+    internal_notes = relationship(
+        "InternalNote",
+        back_populates="case_rel",
+        cascade="all, delete-orphan",
+        order_by="InternalNote.created_at.desc()",
+    )
+    tasks = relationship(
+        "CaseTask",
+        back_populates="case_rel",
+        cascade="all, delete-orphan",
+        order_by="CaseTask.order.asc(), CaseTask.created_at.asc()",
+    )
+    investigations = relationship(
+        "CaseInvestigation",
+        back_populates="case_rel",
+        cascade="all, delete-orphan",
+        order_by="CaseInvestigation.created_at.desc()",
+    )
 
     def __repr__(self) -> str:
         return f"<Case {self.case_number}: {self.title} ({self.status})>"

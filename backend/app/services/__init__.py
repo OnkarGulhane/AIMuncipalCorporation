@@ -1,6 +1,9 @@
 from app.services.user_service import user_service, UserService
 from app.services.organization_service import organization_service, OrganizationService
 from app.services.case_service import case_service, CaseService
+from app.services.activity_service import ActivityService
+
+activity_service = ActivityService()
 
 __all__ = [
     "user_service",
@@ -9,4 +12,6 @@ __all__ = [
     "OrganizationService",
     "case_service",
     "CaseService",
+    "activity_service",
+    "ActivityService",
 ]

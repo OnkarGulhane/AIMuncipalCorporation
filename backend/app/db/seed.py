@@ -268,6 +268,61 @@ def seed_database():
                     reason="Assigned to Ward 12 rapid response unit.",
                 )
 
+                # Seed Activities for Case 1 (Pothole)
+                # 1. Citizen message
+                db.add(CaseMessage(
+                    case_id=case1.id,
+                    sender_id=citizen.id,
+                    message="Please note that school buses pass through this junction every morning at 7:30 AM.",
+                    message_type="query",
+                    is_from_citizen=True,
+                ))
+                # 2. Staff response
+                db.add(CaseMessage(
+                    case_id=case1.id,
+                    sender_id=operator.id,
+                    message="Thank you for the update. Our inspection team has been deployed with cold asphalt mix.",
+                    message_type="staff_update",
+                    is_from_citizen=False,
+                ))
+                # 3. Internal Notes (Private to Staff)
+                db.add(InternalNote(
+                    case_id=case1.id,
+                    author_id=operator.id,
+                    note="Dispatched road roller #3 and 2 cubic meters of bitumen gravel from Central Depot.",
+                    note_type="investigation_discussion",
+                ))
+                # 4. Tasks
+                db.add(CaseTask(
+                    case_id=case1.id,
+                    title="Site inspection & barricading",
+                    description="Place traffic warning cones and assess depth.",
+                    status="completed",
+                    assigned_to_id=operator.id,
+                    created_by_id=operator.id,
+                    order=1,
+                ))
+                db.add(CaseTask(
+                    case_id=case1.id,
+                    title="Asphalt patching & compaction",
+                    description="Fill pothole with hot mix bitumen and compact level with road surface.",
+                    status="in_progress",
+                    assigned_to_id=operator.id,
+                    created_by_id=operator.id,
+                    order=2,
+                ))
+                # 5. Investigation
+                db.add(CaseInvestigation(
+                    case_id=case1.id,
+                    investigator_id=operator.id,
+                    observations="Sub-base eroded due to recent heavy monsoon rainwater runoff from storm drain.",
+                    actions_taken="Cleared loose gravel, applied tack coat, placed warning signage.",
+                    findings="Drainage culvert blockage caused localized road foundation subsidence.",
+                    evidence_notes="Photos taken of damaged road base and culvert inlet.",
+                    follow_up_requirements="Stormwater department needs to clear culvert to prevent recurrence.",
+                ))
+                db.commit()
+
             # Case 2: Reported Garbage Dump
             garbage_cat = cat_map.get("GARBAGE_OVERFLOW")
             case2 = case_service.create_case(
