@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai_case_manager_production_api
+    restart: always
+    environment:
+      PROJECT_NAME: "AI Municipal Case Manager"
+      ENVIRONMENT: production
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["*"]}
+      ENABLE_DOCS: "false"
+      SECURE_COOKIES: "true"
+      AI_PROVIDER: ${AI_PROVIDER:-external}
+      AI_API_KEY: ${AI_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      EMAILS_FROM_EMAIL: ${EMAILS_FROM_EMAIL:-notifications@city.gov}
+    ports:
+      - "8000:8000"
+    volumes:
+      - production_uploads:/app/uploads
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+volumes:
+  production_uploads:

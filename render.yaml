@@ -1,0 +1,43 @@
+# Render Cloud Deployment Blueprint
+# AI Municipal Corporation - Intelligent Case Manager Platform
+
+services:
+  # FastAPI Backend Web Service
+  - type: web
+    name: ai-case-manager-api
+    runtime: python
+    region: singapore # Close to India / APAC
+    plan: free
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /ready
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: ENVIRONMENT
+        value: production
+      - key: PROJECT_NAME
+        value: "AI Municipal Case Manager"
+      - key: API_V1_STR
+        value: /api/v1
+      - key: ENABLE_DOCS
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ai-case-manager-db
+          property: connectionString
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: '["*"]'
+      - key: UPLOAD_DIR
+        value: uploads
+
+# Managed PostgreSQL Database on Render
+databases:
+  - name: ai-case-manager-db
+    region: singapore
+    plan: free
+    databaseName: ai_case_manager
+    user: postgres

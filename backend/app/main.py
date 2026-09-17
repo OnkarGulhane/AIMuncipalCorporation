@@ -1,7 +1,8 @@
 import datetime
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from app.api.v1.endpoints import health
 from app.api.v1.router import api_v1_router
 from app.core.config import settings
@@ -10,13 +11,30 @@ from app.core.logging import logger
 from app.core.scheduler import start_scheduler, shutdown_scheduler
 
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware injecting hardened HTTP security headers on all responses.
+    """
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        
+        if settings.is_production:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+            
+        return response
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Application lifespan manager for startup and shutdown routines.
     """
     logger.info(f"Starting {settings.PROJECT_NAME} v{settings.VERSION} [{settings.ENVIRONMENT}]")
-    # In development, create tables if using SQLite or fresh db before migrations
+    # In development, ensure tables exist
     Base.metadata.create_all(bind=engine)
     logger.info("Database connectivity established and schemas checked.")
     
@@ -30,18 +48,20 @@ async def lifespan(app: FastAPI):
     logger.info(f"Shutting down {settings.PROJECT_NAME}.")
 
 
-
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description="AI-Assisted Municipal Case Management System REST API",
-    openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    openapi_url=f"{settings.API_V1_STR}/openapi.json" if settings.ENABLE_DOCS else None,
+    docs_url="/docs" if settings.ENABLE_DOCS else None,
+    redoc_url="/redoc" if settings.ENABLE_DOCS else None,
     lifespan=lifespan,
 )
 
-# Configure CORS
+# 1. Security Headers Middleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# 2. Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else [settings.CORS_ORIGINS],
@@ -71,14 +91,13 @@ app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 
-
 @app.get("/", tags=["Root"])
 def root():
     return {
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT,
-        "documentation": "/docs",
+        "documentation": "/docs" if settings.ENABLE_DOCS else "disabled",
         "health": "/health",
         "ready": "/ready",
         "api_v1": settings.API_V1_STR,

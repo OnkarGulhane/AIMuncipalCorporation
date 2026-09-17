@@ -1,5 +1,5 @@
-from typing import List, Union
-from pydantic import AnyHttpUrl, field_validator
+from typing import List, Union, Optional
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     ENVIRONMENT: str = "development"
     API_V1_STR: str = "/api/v1"
+    ENABLE_DOCS: bool = True
 
     # Database
     DATABASE_URL: str = "sqlite:///./ai_case_manager.db"
@@ -16,6 +17,7 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "development_jwt_secret_key_minimum_32_characters_long_12345"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
+    SECURE_COOKIES: bool = False
 
     # CORS
     CORS_ORIGINS: Union[List[str], str] = ["*"]
@@ -41,6 +43,28 @@ class Settings(BaseSettings):
     STORAGE_ENDPOINT_URL: str = ""
     STORAGE_ACCESS_KEY: str = ""
     STORAGE_SECRET_KEY: str = ""
+
+    # Email / SMTP Settings
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_TLS: bool = True
+    EMAILS_FROM_EMAIL: str = "notifications@city.gov"
+    EMAILS_FROM_NAME: str = "AI Municipal Corporation"
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT.lower() == "production"
+
+    @model_validator(mode="after")
+    def validate_production_guards(self) -> "Settings":
+        if self.is_production:
+            if "development_jwt_secret_key" in self.JWT_SECRET_KEY:
+                raise ValueError("Production requires a strong, randomly generated JWT_SECRET_KEY (not the default development key).")
+            if len(self.JWT_SECRET_KEY) < 32:
+                raise ValueError("Production JWT_SECRET_KEY must be at least 32 characters long.")
+        return self
 
     model_config = SettingsConfigDict(
         env_file=".env",
