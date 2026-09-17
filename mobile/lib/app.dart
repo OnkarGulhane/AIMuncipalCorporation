@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
-import 'features/health/presentation/health_check_view.dart';
+import 'features/auth/presentation/login_screen.dart';
 
 class AICaseManagerApp extends StatelessWidget {
   const AICaseManagerApp({super.key});
@@ -11,7 +11,7 @@ class AICaseManagerApp extends StatelessWidget {
       title: 'AI Case Manager',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const HealthCheckView(),
+      home: const LoginScreen(),
     );
   }
 }
