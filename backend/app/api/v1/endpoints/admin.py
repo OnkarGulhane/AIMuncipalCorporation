@@ -71,10 +71,25 @@ def update_user_role(
     if not target_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
 
+    old_role = target_user.role
     target_user.role = payload.role.value
     db.add(target_user)
     db.commit()
     db.refresh(target_user)
+
+    from app.services.audit_service import audit_service
+    audit_service.log_event(
+        db=db,
+        action="USER_ROLE_CHANGED",
+        resource_type="user",
+        resource_id=str(target_user.id),
+        actor_id=admin.id,
+        details=f"Admin {admin.full_name} changed role of user {target_user.email} from {old_role} to {target_user.role}",
+        old_values={"role": old_role},
+        new_values={"role": target_user.role},
+        is_ai_action=False,
+    )
+
     return UserResponse.model_validate(target_user)
 
 
@@ -90,11 +105,27 @@ def update_user_status(
     if not target_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
 
+    old_status = target_user.is_active
     target_user.is_active = payload.is_active
     db.add(target_user)
     db.commit()
     db.refresh(target_user)
+
+    from app.services.audit_service import audit_service
+    audit_service.log_event(
+        db=db,
+        action="USER_STATUS_CHANGED",
+        resource_type="user",
+        resource_id=str(target_user.id),
+        actor_id=admin.id,
+        details=f"Admin {admin.full_name} updated active status of user {target_user.email} from {old_status} to {target_user.is_active}",
+        old_values={"is_active": old_status},
+        new_values={"is_active": target_user.is_active},
+        is_ai_action=False,
+    )
+
     return UserResponse.model_validate(target_user)
+
 
 
 @router.get("/system-stats", summary="Get System-Wide Statistics (Admin Only)")

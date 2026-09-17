@@ -56,6 +56,21 @@ app.include_router(health.router, tags=["Health"])
 # V1 API Router
 app.include_router(api_v1_router, prefix=settings.API_V1_STR)
 
+# Register Custom Standardized Exception Handlers (PRD Section 50)
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from app.core.errors import (
+    AppError,
+    app_error_handler,
+    http_exception_handler,
+    validation_exception_handler,
+)
+
+app.add_exception_handler(AppError, app_error_handler)
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+
+
 
 @app.get("/", tags=["Root"])
 def root():

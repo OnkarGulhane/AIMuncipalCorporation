@@ -4,7 +4,9 @@ import '../../auth/data/auth_models.dart';
 import '../../auth/data/auth_service.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../notifications/presentation/notifications_screen.dart';
+import '../../cases/presentation/case_search_screen.dart';
 import 'widgets/role_dashboard_views.dart';
+
 
 class RoleShellScreen extends StatefulWidget {
   final UserModel user;
@@ -123,6 +125,16 @@ class _RoleShellScreenState extends State<RoleShellScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.search_rounded),
+            tooltip: 'Search Complaints',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CaseSearchScreen()),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.notifications_outlined),
             tooltip: 'Notifications',
             onPressed: () {
@@ -138,6 +150,7 @@ class _RoleShellScreenState extends State<RoleShellScreen> {
             onPressed: _handleSignOut,
           ),
         ],
+
       ),
       body: _getBodyForIndex(_selectedIndex),
       bottomNavigationBar: BottomNavigationBar(

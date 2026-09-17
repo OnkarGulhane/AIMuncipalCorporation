@@ -25,9 +25,12 @@ from app.schemas.case import (
     CaseResponse,
     CaseListResponse,
     CaseTimelineResponse,
+    UnifiedTimelineItem,
+    UnifiedTimelineResponse,
     ResolutionConfirmRequest,
     ResolutionRejectRequest,
 )
+
 from app.schemas.activity import (
     CaseMessageCreate,
     CaseMessageResponse,

@@ -1,11 +1,17 @@
 import datetime
-from typing import List, Optional, Tuple
-from sqlalchemy import or_, func
+from typing import List, Optional, Tuple, Any
+from sqlalchemy import or_, and_, func, desc, asc
 from sqlalchemy.orm import Session
 from app.models.case import Case, CaseTimeline, CaseStatus, CasePriority, CaseSeverity
 from app.models.organization import Category
 from app.models.user import User, UserRole
-from app.schemas.case import CaseCreate, CaseUpdate, CaseStatusUpdate, CaseAssignmentUpdate
+from app.models.activity import CaseMessage, InternalNote, CaseTask, CaseInvestigation
+from app.models.attachment import CaseAttachment
+from app.models.ai_analysis import AIAnalysis
+from app.models.escalation import CaseEscalation
+from app.models.sla import CaseSLA, SLAStatus
+from app.schemas.case import CaseCreate, CaseUpdate, CaseStatusUpdate, CaseAssignmentUpdate, UnifiedTimelineItem, UnifiedTimelineResponse
+from app.services.audit_service import audit_service
 
 
 # Valid State Transitions Graph
@@ -163,6 +169,24 @@ class CaseService:
             is_internal=False,
         )
 
+        # Log creation in central immutable AuditLog
+        audit_service.log_event(
+            db=db,
+            action="CASE_CREATED",
+            resource_type="case",
+            resource_id=str(case_obj.id),
+            actor_id=citizen_id,
+            details=f"Citizen filed complaint {case_number}: '{case_obj.title}' in {case_obj.ward or 'General'}",
+            new_values={
+                "case_number": case_number,
+                "title": case_obj.title,
+                "status": case_obj.status,
+                "priority": case_obj.priority,
+                "ward": case_obj.ward,
+            },
+            is_ai_action=False,
+        )
+
         from app.services.notification_service import notification_service
         from app.models.notification import NotificationEventType
 
@@ -189,11 +213,23 @@ class CaseService:
         db: Session,
         user: User,
         status: Optional[str] = None,
+        statuses: Optional[List[str]] = None,
+        priority: Optional[str] = None,
+        priorities: Optional[List[str]] = None,
+        severity: Optional[str] = None,
         department_id: Optional[int] = None,
         category_id: Optional[int] = None,
-        ward: Optional[str] = None,
+        team_id: Optional[int] = None,
         assigned_to_id: Optional[int] = None,
+        citizen_id: Optional[int] = None,
+        ward: Optional[str] = None,
         search: Optional[str] = None,
+        created_from: Optional[datetime.datetime] = None,
+        created_to: Optional[datetime.datetime] = None,
+        is_overdue: Optional[bool] = None,
+        is_at_risk: Optional[bool] = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
         page: int = 1,
         size: int = 50,
     ) -> Tuple[List[Case], int]:
@@ -202,33 +238,101 @@ class CaseService:
         # Enforce server-side Requester isolation: Requesters see only their own cases!
         if user.role == UserRole.REQUESTER.value:
             query = query.filter(Case.citizen_id == user.id)
+        elif citizen_id is not None:
+            query = query.filter(Case.citizen_id == citizen_id)
 
-        if status:
-            query = query.filter(Case.status == status)
+        # Status filtering (single or list)
+        if statuses:
+            query = query.filter(Case.status.in_(statuses))
+        elif status:
+            if "," in status:
+                query = query.filter(Case.status.in_([s.strip() for s in status.split(",")]))
+            else:
+                query = query.filter(Case.status == status)
+
+        # Priority filtering
+        if priorities:
+            query = query.filter(Case.priority.in_(priorities))
+        elif priority:
+            if "," in priority:
+                query = query.filter(Case.priority.in_([p.strip() for p in priority.split(",")]))
+            else:
+                query = query.filter(Case.priority == priority)
+
+        # Severity filtering
+        if severity:
+            query = query.filter(Case.severity == severity)
+
+        # Organizational filters
         if department_id is not None:
             query = query.filter(Case.department_id == department_id)
         if category_id is not None:
             query = query.filter(Case.category_id == category_id)
-        if ward:
-            query = query.filter(Case.ward.ilike(f"%{ward}%"))
+        if team_id is not None:
+            query = query.filter(Case.team_id == team_id)
         if assigned_to_id is not None:
             query = query.filter(Case.assigned_to_id == assigned_to_id)
+        if ward:
+            query = query.filter(Case.ward.ilike(f"%{ward.strip()}%"))
 
+        # Date range filters
+        if created_from:
+            query = query.filter(Case.created_at >= created_from)
+        if created_to:
+            query = query.filter(Case.created_at <= created_to)
+
+        # Overdue / At-risk joins with CaseSLA if requested
+        if is_overdue is not None or is_at_risk is not None:
+            query = query.outerjoin(CaseSLA, Case.id == CaseSLA.case_id)
+            if is_overdue is True:
+                now = datetime.datetime.now(datetime.timezone.utc)
+                query = query.filter(
+                    or_(
+                        CaseSLA.status == SLAStatus.BREACHED.value,
+                        (CaseSLA.resolution_deadline < now) & (Case.closed_at.is_(None)),
+                    )
+                )
+            if is_at_risk is True:
+                query = query.filter(CaseSLA.status == SLAStatus.AT_RISK.value)
+
+        # Multi-attribute textual keyword search
         if search:
             term = f"%{search.strip()}%"
-            query = query.filter(
+            query = query.outerjoin(User, Case.citizen_id == User.id).filter(
                 or_(
                     Case.case_number.ilike(term),
                     Case.title.ilike(term),
                     Case.description.ilike(term),
                     Case.ward.ilike(term),
                     Case.landmark.ilike(term),
+                    Case.address.ilike(term),
+                    Case.resolution_notes.ilike(term),
+                    User.full_name.ilike(term),
+                    User.email.ilike(term),
+                    User.phone_number.ilike(term),
                 )
             )
 
         total = query.count()
+
+        # Sorting logic
+        order_col = Case.created_at
+        if sort_by == "updated_at":
+            order_col = Case.updated_at
+        elif sort_by == "priority":
+            order_col = Case.priority
+        elif sort_by == "status":
+            order_col = Case.status
+        elif sort_by == "case_number":
+            order_col = Case.case_number
+
+        if sort_order.lower() == "asc":
+            query = query.order_by(asc(order_col))
+        else:
+            query = query.order_by(desc(order_col))
+
         offset = (page - 1) * size
-        items = query.order_by(Case.created_at.desc()).offset(offset).limit(size).all()
+        items = query.offset(offset).limit(size).all()
         return items, total
 
     @staticmethod
@@ -283,6 +387,19 @@ class CaseService:
             new_value=target_status,
             notes=reason or resolution_notes or f"Status changed from {old_status} to {target_status}",
             is_internal=False,
+        )
+
+        # Central Audit Log
+        audit_service.log_event(
+            db=db,
+            action=f"STATUS_CHANGED_TO_{target_status.upper()}",
+            resource_type="case",
+            resource_id=str(case_obj.id),
+            actor_id=actor.id,
+            details=reason or resolution_notes or f"Status moved from {old_status} to {target_status}",
+            old_values={"status": old_status},
+            new_values={"status": target_status, "resolution_notes": resolution_notes},
+            is_ai_action=False,
         )
 
         from app.services.notification_service import notification_service
@@ -353,6 +470,19 @@ class CaseService:
             is_internal=False,
         )
 
+        # Central Audit Log
+        audit_service.log_event(
+            db=db,
+            action="CASE_REASSIGNED",
+            resource_type="case",
+            resource_id=str(case_obj.id),
+            actor_id=actor.id,
+            details=notes,
+            old_values={"assigned_to_id": old_assignee, "team_id": old_team, "department_id": old_dept},
+            new_values={"assigned_to_id": case_obj.assigned_to_id, "team_id": case_obj.team_id, "department_id": case_obj.department_id},
+            is_ai_action=False,
+        )
+
         from app.services.notification_service import notification_service
         from app.models.notification import NotificationEventType
 
@@ -392,6 +522,18 @@ class CaseService:
             new_value=CaseStatus.CONFIRMED.value,
             notes=notes or "Citizen verified and confirmed satisfactory resolution.",
             is_internal=False,
+        )
+
+        audit_service.log_event(
+            db=db,
+            action="RESOLUTION_CONFIRMED",
+            resource_type="case",
+            resource_id=str(case_obj.id),
+            actor_id=citizen.id,
+            details=notes or "Citizen verified and confirmed satisfactory resolution.",
+            old_values={"status": old_status},
+            new_values={"status": CaseStatus.CONFIRMED.value},
+            is_ai_action=False,
         )
 
         from app.services.notification_service import notification_service
@@ -436,6 +578,18 @@ class CaseService:
             is_internal=False,
         )
 
+        audit_service.log_event(
+            db=db,
+            action="RESOLUTION_REJECTED",
+            resource_type="case",
+            resource_id=str(case_obj.id),
+            actor_id=citizen.id,
+            details=f"Citizen rejected resolution. Reason: {rejection_reason.strip()}",
+            old_values={"status": old_status},
+            new_values={"status": CaseStatus.REOPENED.value, "rejection_reason": rejection_reason.strip()},
+            is_ai_action=False,
+        )
+
         from app.services.notification_service import notification_service
         from app.models.notification import NotificationEventType
 
@@ -450,6 +604,171 @@ class CaseService:
 
         return case_obj
 
+    @staticmethod
+    def get_unified_case_timeline(
+        db: Session,
+        case_id: int,
+        user: User,
+    ) -> UnifiedTimelineResponse:
+        """
+        Consolidates and returns a unified, chronological timeline of all activities,
+        milestones, messages, notes, tasks, investigations, and escalations.
+        Strictly enforces Requester Privacy Isolation (no internal notes/details leaked).
+        """
+        case = db.query(Case).filter(Case.id == case_id).first()
+        if not case:
+            raise ValueError("Case not found.")
+
+        # Requester isolation check
+        is_requester = (user.role == UserRole.REQUESTER.value)
+        if is_requester and case.citizen_id != user.id:
+            raise PermissionError("You are not authorized to view this case timeline.")
+
+        timeline_items: List[UnifiedTimelineItem] = []
+
+        # 1. Base Case Lifecycle Events from CaseTimeline
+        timelines = db.query(CaseTimeline).filter(CaseTimeline.case_id == case_id).all()
+        for t in timelines:
+            if is_requester and t.is_internal:
+                continue
+            actor_name = t.actor.full_name if t.actor else "System Automated"
+            actor_role = t.actor.role if t.actor else "system"
+            timeline_items.append(
+                UnifiedTimelineItem(
+                    id=f"timeline_{t.id}",
+                    event_type="status_change" if "STATUS" in t.action else t.action.lower(),
+                    title=t.action.replace("_", " ").title(),
+                    description=t.notes,
+                    actor_id=t.actor_id,
+                    actor_name=actor_name,
+                    actor_role=actor_role,
+                    is_internal=t.is_internal,
+                    metadata={"old_value": t.old_value, "new_value": t.new_value},
+                    timestamp=t.created_at,
+                )
+            )
+
+        # 2. Case Messages (Citizen & Staff public communications)
+        messages = db.query(CaseMessage).filter(CaseMessage.case_id == case_id).all()
+        for m in messages:
+            timeline_items.append(
+                UnifiedTimelineItem(
+                    id=f"msg_{m.id}",
+                    event_type="citizen_message" if m.is_from_citizen else "staff_update",
+                    title="Citizen Response" if m.is_from_citizen else "Municipal Staff Update",
+                    description=m.message,
+                    actor_id=m.sender_id,
+                    actor_name=m.sender.full_name if m.sender else "Staff",
+                    actor_role=m.sender.role if m.sender else "staff",
+                    is_internal=False,
+                    metadata={"message_type": m.message_type},
+                    timestamp=m.created_at,
+                )
+            )
+
+        # 3. Internal Notes (Only for Staff / Admin)
+        if not is_requester:
+            internal_notes = db.query(InternalNote).filter(InternalNote.case_id == case_id).all()
+            for note in internal_notes:
+                timeline_items.append(
+                    UnifiedTimelineItem(
+                        id=f"note_{note.id}",
+                        event_type="internal_note",
+                        title=f"Internal Note ({note.note_type.title()})",
+                        description=note.note,
+                        actor_id=note.author_id,
+                        actor_name=note.author.full_name if note.author else "Staff",
+                        actor_role=note.author.role if note.author else "operator",
+                        is_internal=True,
+                        metadata={"note_type": note.note_type},
+                        timestamp=note.created_at,
+                    )
+                )
+
+
+        # 4. Field Tasks (Public or Staff)
+        tasks = db.query(CaseTask).filter(CaseTask.case_id == case_id).all()
+        for tk in tasks:
+            timeline_items.append(
+                UnifiedTimelineItem(
+                    id=f"task_{tk.id}",
+                    event_type=f"task_{tk.status}",
+                    title=f"Field Task: {tk.title}",
+                    description=f"Status: {tk.status.upper()}" + (f" | Assignee: {tk.assigned_to.full_name}" if tk.assigned_to else ""),
+                    actor_id=tk.assigned_to_id,
+                    actor_name=tk.assigned_to.full_name if tk.assigned_to else None,
+                    actor_role=tk.assigned_to.role if tk.assigned_to else None,
+                    is_internal=False,
+                    metadata={"task_status": tk.status, "is_completed": tk.status == "completed"},
+                    timestamp=tk.updated_at or tk.created_at,
+                )
+            )
+
+        # 5. Field Investigations (Staff only)
+        if not is_requester:
+            investigations = db.query(CaseInvestigation).filter(CaseInvestigation.case_id == case_id).all()
+            for inv in investigations:
+                timeline_items.append(
+                    UnifiedTimelineItem(
+                        id=f"inv_{inv.id}",
+                        event_type="investigation",
+                        title="On-Site Field Investigation Recorded",
+                        description=f"Observations: {inv.observations}" + (f" | Findings: {inv.findings}" if inv.findings else ""),
+                        actor_id=inv.investigator_id,
+                        actor_name=inv.investigator.full_name if inv.investigator else "Investigator",
+                        actor_role=inv.investigator.role if inv.investigator else "operator",
+                        is_internal=True,
+                        metadata={"follow_up_requirements": inv.follow_up_requirements},
+                        timestamp=inv.created_at,
+                    )
+                )
+
+
+        # 6. Escalations
+        escalations = db.query(CaseEscalation).filter(CaseEscalation.case_id == case_id).all()
+        for esc in escalations:
+            timeline_items.append(
+                UnifiedTimelineItem(
+                    id=f"esc_{esc.id}",
+                    event_type="escalation",
+                    title=f"SLA Escalation ({esc.status.upper()})",
+                    description=f"Trigger: {esc.trigger.replace('_', ' ').title()}. Reason: {esc.reason}",
+                    actor_id=esc.assigned_to_id,
+                    actor_name=esc.assigned_to.full_name if esc.assigned_to else "Escalation Lead",
+                    actor_role=esc.assigned_to.role if esc.assigned_to else "team_lead",
+                    is_internal=False,
+                    metadata={"escalation_status": esc.status, "trigger": esc.trigger},
+                    timestamp=esc.created_at,
+                )
+            )
+
+        # 7. Attachments
+        attachments = db.query(CaseAttachment).filter(CaseAttachment.case_id == case_id).all()
+        for att in attachments:
+            timeline_items.append(
+                UnifiedTimelineItem(
+                    id=f"att_{att.id}",
+                    event_type="attachment",
+                    title=f"Evidence Attached: {att.original_filename}",
+                    description=f"File Type: {att.content_type} ({att.file_size // 1024} KB)",
+                    actor_id=att.uploader_id,
+                    actor_name=att.uploader.full_name if att.uploader else "User",
+                    actor_role=att.uploader.role if att.uploader else "user",
+                    is_internal=False,
+                    metadata={"file_name": att.original_filename, "size_bytes": att.file_size},
+                    timestamp=att.created_at,
+                )
+            )
+
+        # Sort all timeline items chronologically (oldest to newest)
+        timeline_items.sort(key=lambda item: item.timestamp, reverse=False)
+
+        return UnifiedTimelineResponse(
+            case_id=case.id,
+            case_number=case.case_number,
+            total_events=len(timeline_items),
+            timeline=timeline_items,
+        )
+
 
 case_service = CaseService()
-

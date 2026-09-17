@@ -244,8 +244,28 @@ class AIService:
             )
         )
 
+        # 8. Record in centralized immutable AuditLog
+        from app.services.audit_service import audit_service
+        audit_service.log_event(
+            db=db,
+            action="AI_ANALYSIS_PERFORMED",
+            resource_type="case",
+            resource_id=str(case_id),
+            actor_id=user.id,
+            details=f"AI Triage generated category: {cat.name if cat else 'Uncategorized'}, priority: {analysis_data['priority']}, confidence: {int(analysis_data['confidence'] * 100)}%",
+            new_values={
+                "category_id": cat_id,
+                "priority": analysis_data["priority"],
+                "severity": analysis_data["severity"],
+                "confidence": analysis_data["confidence"],
+                "recommended_action": analysis_data["recommended_action"],
+            },
+            is_ai_action=True,
+        )
+
         db.commit()
         db.refresh(ai_record)
+
 
         return AIAnalysisResponse(
             id=ai_record.id,
@@ -362,10 +382,27 @@ class AIService:
                     is_internal=False,
                 )
             )
+            from app.services.audit_service import audit_service
+            audit_service.log_event(
+                db=db,
+                action="AI_SUGGESTIONS_APPLIED",
+                resource_type="case",
+                resource_id=str(case_id),
+                actor_id=user.id,
+                details=f"Human staff {user.full_name} accepted AI recommendations: {', '.join(applied)}",
+                new_values={
+                    "category_id": case.category_id,
+                    "department_id": case.department_id,
+                    "priority": case.priority,
+                    "team_id": case.team_id,
+                },
+                is_ai_action=False,
+            )
 
         db.commit()
         db.refresh(case)
         return case
+
 
     # -----------------------------------------------------------------------
     # AI Communication Copilot (Draft Generator)

@@ -12,6 +12,8 @@ import '../data/ai_models.dart';
 import '../data/ai_service.dart';
 import '../data/sla_models.dart';
 import '../data/sla_service.dart';
+import 'case_timeline_widget.dart';
+
 
 class CaseDetailScreen extends StatefulWidget {
   final int caseId;
@@ -1055,72 +1057,15 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
           ],
 
 
-          // Timeline
+          // Timeline Section
           const Text('Chronological Case Journey', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-
-          if (_caseData!.timeline.isEmpty)
-            const Text('No timeline records yet.')
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _caseData!.timeline.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, idx) {
-                final entry = _caseData!.timeline[idx];
-                return Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.08),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.history, size: 18, color: AppColors.primary),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  entry.action.replaceAll('_', ' ').toUpperCase(),
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                ),
-                                Text(
-                                  '${entry.createdAt.hour.toString().padLeft(2, "0")}:${entry.createdAt.minute.toString().padLeft(2, "0")}',
-                                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-                                ),
-                              ],
-                            ),
-                            if (entry.notes != null) ...[
-                              const SizedBox(height: 4),
-                              Text(entry.notes!, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+          CaseTimelineWidget(caseId: widget.caseId),
         ],
       ),
     );
   }
+
 
   // ---------------------------------------------------------------------------
   // Tab 2: AI Copilot & Insights (Staff Only)

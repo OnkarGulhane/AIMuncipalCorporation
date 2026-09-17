@@ -37,11 +37,19 @@ class CaseService {
 
   Future<ApiResponse<CaseListResponseModel>> listCases({
     String? status,
+    String? priority,
+    String? severity,
     int? departmentId,
     int? categoryId,
+    int? teamId,
     String? ward,
     int? assignedToId,
+    int? citizenId,
     String? search,
+    bool? isOverdue,
+    bool? isAtRisk,
+    String sortBy = 'created_at',
+    String sortOrder = 'desc',
     int page = 1,
     int size = 50,
   }) async {
@@ -49,13 +57,21 @@ class CaseService {
     final queryParams = <String, String>{
       'page': page.toString(),
       'size': size.toString(),
+      'sort_by': sortBy,
+      'sort_order': sortOrder,
     };
-    if (status != null) queryParams['status'] = status;
+    if (status != null && status.isNotEmpty) queryParams['status'] = status;
+    if (priority != null && priority.isNotEmpty) queryParams['priority'] = priority;
+    if (severity != null && severity.isNotEmpty) queryParams['severity'] = severity;
     if (departmentId != null) queryParams['department_id'] = departmentId.toString();
     if (categoryId != null) queryParams['category_id'] = categoryId.toString();
-    if (ward != null) queryParams['ward'] = ward;
+    if (teamId != null) queryParams['team_id'] = teamId.toString();
+    if (ward != null && ward.isNotEmpty) queryParams['ward'] = ward;
     if (assignedToId != null) queryParams['assigned_to_id'] = assignedToId.toString();
+    if (citizenId != null) queryParams['citizen_id'] = citizenId.toString();
     if (search != null && search.isNotEmpty) queryParams['search'] = search;
+    if (isOverdue != null) queryParams['is_overdue'] = isOverdue.toString();
+    if (isAtRisk != null) queryParams['is_at_risk'] = isAtRisk.toString();
 
     final queryString = Uri(queryParameters: queryParams).query;
     return _apiClient.get<CaseListResponseModel>(
@@ -64,6 +80,16 @@ class CaseService {
       fromJson: (json) => CaseListResponseModel.fromJson(json as Map<String, dynamic>),
     );
   }
+
+  Future<ApiResponse<UnifiedTimelineResponseModel>> getUnifiedTimeline(int caseId) async {
+    final token = AuthService.currentToken;
+    return _apiClient.get<UnifiedTimelineResponseModel>(
+      '/api/v1/cases/$caseId/timeline',
+      token: token,
+      fromJson: (json) => UnifiedTimelineResponseModel.fromJson(json as Map<String, dynamic>),
+    );
+  }
+
 
   Future<ApiResponse<CaseModel>> getCaseDetails(int caseId) async {
     final token = AuthService.currentToken;

@@ -317,3 +317,72 @@ class CaseListResponseModel {
     );
   }
 }
+
+class UnifiedTimelineItemModel {
+  final String id;
+  final String eventType;
+  final String title;
+  final String? description;
+  final int? actorId;
+  final String? actorName;
+  final String? actorRole;
+  final bool isInternal;
+  final Map<String, dynamic>? metadata;
+  final DateTime timestamp;
+
+  UnifiedTimelineItemModel({
+    required this.id,
+    required this.eventType,
+    required this.title,
+    this.description,
+    this.actorId,
+    this.actorName,
+    this.actorRole,
+    this.isInternal = false,
+    this.metadata,
+    required this.timestamp,
+  });
+
+  factory UnifiedTimelineItemModel.fromJson(Map<String, dynamic> json) {
+    return UnifiedTimelineItemModel(
+      id: json['id'] as String? ?? '',
+      eventType: json['event_type'] as String? ?? 'general',
+      title: json['title'] as String? ?? 'Update',
+      description: json['description'] as String?,
+      actorId: json['actor_id'] as int?,
+      actorName: json['actor_name'] as String?,
+      actorRole: json['actor_role'] as String?,
+      isInternal: json['is_internal'] as bool? ?? false,
+      metadata: json['metadata'] as Map<String, dynamic>?,
+      timestamp: json['timestamp'] != null
+          ? DateTime.tryParse(json['timestamp'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+}
+
+class UnifiedTimelineResponseModel {
+  final int caseId;
+  final String caseNumber;
+  final int totalEvents;
+  final List<UnifiedTimelineItemModel> timeline;
+
+  UnifiedTimelineResponseModel({
+    required this.caseId,
+    required this.caseNumber,
+    required this.totalEvents,
+    required this.timeline,
+  });
+
+  factory UnifiedTimelineResponseModel.fromJson(Map<String, dynamic> json) {
+    return UnifiedTimelineResponseModel(
+      caseId: json['case_id'] as int? ?? 0,
+      caseNumber: json['case_number'] as String? ?? '',
+      totalEvents: json['total_events'] as int? ?? 0,
+      timeline: (json['timeline'] as List? ?? [])
+          .map((item) => UnifiedTimelineItemModel.fromJson(item as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+

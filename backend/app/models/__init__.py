@@ -21,6 +21,7 @@ from app.models.notification import (
     NotificationEventType,
     NotificationChannel,
 )
+from app.models.audit import AuditLog
 
 __all__ = [
     "BaseModel",
@@ -52,6 +53,8 @@ __all__ = [
     "NotificationPreference",
     "NotificationEventType",
     "NotificationChannel",
+    "AuditLog",
 ]
+
 
 

@@ -5,12 +5,16 @@ from app.api.dependencies import get_current_active_user, require_roles
 from app.core.database import get_db
 from app.models.case import Case, CaseStatus
 from app.models.user import User, UserRole
+from datetime import datetime
 from app.schemas.case import (
     CaseCreate,
     CaseResponse,
     CaseListResponse,
     CaseStatusUpdate,
     CaseAssignmentUpdate,
+    CaseTimelineResponse,
+    UnifiedTimelineItem,
+    UnifiedTimelineResponse,
     ResolutionConfirmRequest,
     ResolutionRejectRequest,
 )
@@ -40,29 +44,50 @@ def create_case(
 @router.get("", response_model=CaseListResponse, summary="List & Search Cases")
 def list_cases(
     status_filter: Optional[str] = Query(None, alias="status"),
+    priority: Optional[str] = Query(None),
+    severity: Optional[str] = Query(None),
     department_id: Optional[int] = Query(None),
     category_id: Optional[int] = Query(None),
+    team_id: Optional[int] = Query(None),
     ward: Optional[str] = Query(None),
     assigned_to_id: Optional[int] = Query(None),
+    citizen_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
+    created_from: Optional[datetime] = Query(None),
+    created_to: Optional[datetime] = Query(None),
+    is_overdue: Optional[bool] = Query(None),
+    is_at_risk: Optional[bool] = Query(None),
+    sort_by: str = Query("created_at", pattern="^(created_at|updated_at|priority|status|case_number)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
+
     page: int = Query(1, ge=1),
     size: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ) -> CaseListResponse:
     """
-    List and filter cases.
+    List, filter, and multi-criteria search cases.
     Requesters only see their own reported cases; Staff see authorized cases.
     """
     items, total = case_service.list_cases(
         db,
         user=current_user,
         status=status_filter,
+        priority=priority,
+        severity=severity,
         department_id=department_id,
         category_id=category_id,
+        team_id=team_id,
         ward=ward,
         assigned_to_id=assigned_to_id,
+        citizen_id=citizen_id,
         search=search,
+        created_from=created_from,
+        created_to=created_to,
+        is_overdue=is_overdue,
+        is_at_risk=is_at_risk,
+        sort_by=sort_by,
+        sort_order=sort_order,
         page=page,
         size=size,
     )
@@ -95,6 +120,26 @@ def get_case(
         )
 
     return CaseResponse.model_validate(case_obj)
+
+
+@router.get("/{case_id}/timeline", response_model=UnifiedTimelineResponse, summary="Get Unified Case Timeline")
+def get_case_timeline(
+    case_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> UnifiedTimelineResponse:
+    """
+    Retrieve unified chronological timeline consolidating lifecycle events,
+    messages, tasks, investigations, and escalations.
+    Maintains strict Requester privacy isolation.
+    """
+    try:
+        return case_service.get_unified_case_timeline(db, case_id=case_id, user=current_user)
+    except PermissionError as pe:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(pe))
+    except ValueError as ve:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(ve))
+
 
 
 @router.put("/{case_id}/status", response_model=CaseResponse, summary="Update Case Lifecycle Status")

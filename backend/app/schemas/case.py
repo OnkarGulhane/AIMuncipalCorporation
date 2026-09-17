@@ -96,8 +96,29 @@ class CaseResponse(CaseBase):
     model_config = {"from_attributes": True}
 
 
+class UnifiedTimelineItem(BaseModel):
+    id: str
+    event_type: str
+    title: str
+    description: Optional[str] = None
+    actor_id: Optional[int] = None
+    actor_name: Optional[str] = None
+    actor_role: Optional[str] = None
+    is_internal: bool = False
+    metadata: Optional[dict] = None
+    timestamp: datetime.datetime
+
+
+class UnifiedTimelineResponse(BaseModel):
+    case_id: int
+    case_number: str
+    total_events: int
+    timeline: List[UnifiedTimelineItem]
+
+
 class CaseListResponse(BaseModel):
     items: List[CaseResponse]
     total: int
     page: int
     size: int
+
