@@ -10,6 +10,8 @@ import '../data/attachment_models.dart';
 import '../data/attachment_service.dart';
 import '../data/ai_models.dart';
 import '../data/ai_service.dart';
+import '../data/sla_models.dart';
+import '../data/sla_service.dart';
 
 class CaseDetailScreen extends StatefulWidget {
   final int caseId;
@@ -25,6 +27,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
   final ActivityService _activityService = ActivityService();
   final AttachmentService _attachmentService = AttachmentService();
   final AIService _aiService = AIService();
+  final SLAService _slaService = SLAService();
 
   late TabController _tabController;
   bool _isLoading = true;
@@ -43,10 +46,19 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
   AICaseSummaryModel? _aiSummary;
   bool _isAnalyzingAI = false;
 
+  // SLA & Escalation Data
+  CaseSLAModel? _slaData;
+  RiskAnalysisModel? _riskData;
+  List<EscalationModel> _escalations = [];
+
   bool _isSendingMessage = false;
   final TextEditingController _messageController = TextEditingController();
 
   bool get _isCitizen => AuthService.currentUser?.role == UserRole.requester;
+  bool get _isLeadOrManager =>
+      AuthService.currentUser?.role == UserRole.teamLead ||
+      AuthService.currentUser?.role == UserRole.manager ||
+      AuthService.currentUser?.role == UserRole.administrator;
 
   @override
   void initState() {
@@ -82,6 +94,12 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
 
     _caseData = caseRes.data;
 
+    // Load SLA data
+    final slaRes = await _slaService.getCaseSLA(widget.caseId);
+    if (slaRes.isSuccess && slaRes.data != null) {
+      _slaData = slaRes.data;
+    }
+
     // Load messages
     final msgRes = await _activityService.getMessages(widget.caseId);
     if (msgRes.isSuccess && msgRes.data != null) {
@@ -94,7 +112,7 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
       _attachments = attRes.data!;
     }
 
-    // Load staff-only activities & AI
+    // Load staff-only activities, AI, Risk, and Escalations
     if (!_isCitizen) {
       final noteRes = await _activityService.getInternalNotes(widget.caseId);
       if (noteRes.isSuccess && noteRes.data != null) {
@@ -121,12 +139,25 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
       if (summaryRes.isSuccess && summaryRes.data != null) {
         _aiSummary = summaryRes.data;
       }
+
+      // Load Risk analysis
+      final riskRes = await _slaService.getCaseRisk(widget.caseId);
+      if (riskRes.isSuccess && riskRes.data != null) {
+        _riskData = riskRes.data;
+      }
+
+      // Load Escalations
+      final escRes = await _slaService.getCaseEscalations(widget.caseId);
+      if (escRes.isSuccess && escRes.data != null) {
+        _escalations = escRes.data!;
+      }
     }
 
     setState(() {
       _isLoading = false;
     });
   }
+
 
   // ---------------------------------------------------------------------------
   // Action Handlers
@@ -623,6 +654,144 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
     }
   }
 
+  Future<void> _handleRecalculateSLA() async {
+    final res = await _slaService.recalculateCaseSLA(widget.caseId);
+    if (res.isSuccess && res.data != null) {
+      setState(() => _slaData = res.data);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('SLA targets recalculated successfully.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showEscalateDialog() async {
+    final reasonController = TextEditingController();
+    String triggerType = 'operator_request';
+
+    final proceeded = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: AppColors.statusError, size: 22),
+              SizedBox(width: 8),
+              Text('Escalate Case', style: TextStyle(fontSize: 16)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                value: triggerType,
+                decoration: const InputDecoration(labelText: 'Escalation Trigger', isDense: true),
+                items: const [
+                  DropdownMenuItem(value: 'operator_request', child: Text('Operator Request (Need Help)')),
+                  DropdownMenuItem(value: 'safety_critical', child: Text('Critical Safety Hazard')),
+                  DropdownMenuItem(value: 'sla_breach', child: Text('SLA Target Breach')),
+                  DropdownMenuItem(value: 'repeated_complaint', child: Text('Repeated / Unresolved Complaint')),
+                  DropdownMenuItem(value: 'risk_threshold', child: Text('High Operational Risk')),
+                ],
+                onChanged: (val) => setDialogState(() => triggerType = val ?? 'operator_request'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Escalation Reason',
+                  hintText: 'Explain why senior management / team lead intervention is required...',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () {
+                if (reasonController.text.trim().isNotEmpty) {
+                  Navigator.of(ctx).pop(true);
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.statusError),
+              child: const Text('Confirm Escalation'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (proceeded == true && reasonController.text.trim().isNotEmpty) {
+      final res = await _slaService.createEscalation(
+        widget.caseId,
+        reason: reasonController.text.trim(),
+        triggerType: triggerType,
+      );
+      if (res.isSuccess) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Case escalated to Team Lead & Manager.')),
+          );
+        }
+        _loadAllData();
+      }
+    }
+  }
+
+  Future<void> _showResolveEscalationDialog(EscalationModel escalation) async {
+    final notesController = TextEditingController();
+
+    final proceeded = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Resolve Escalation', style: TextStyle(fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Reason: ${escalation.reason}', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: notesController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Resolution Notes',
+                hintText: 'Describe management action or resources allocated...',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.statusSuccess),
+            child: const Text('Mark Resolved'),
+          ),
+        ],
+      ),
+    );
+
+    if (proceeded == true) {
+      final res = await _slaService.updateEscalation(
+        widget.caseId,
+        escalation.id,
+        status: 'resolved',
+        resolutionNotes: notesController.text.trim().isNotEmpty ? notesController.text.trim() : null,
+      );
+      if (res.isSuccess) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Escalation marked as resolved.')),
+          );
+        }
+        _loadAllData();
+      }
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Build Methods
   // ---------------------------------------------------------------------------
@@ -700,6 +869,8 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
   // Tab 1: Overview & Timeline
   // ---------------------------------------------------------------------------
   Widget _buildOverviewTab() {
+    final activeEscalation = _escalations.where((e) => e.isActive).firstOrNull;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -707,6 +878,24 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
         children: [
           _buildLifecycleTracker(_caseData!.status),
           const SizedBox(height: 16),
+
+          // Escalation Alert Banner
+          if (_caseData!.isEscalated || activeEscalation != null) ...[
+            _buildEscalationBanner(activeEscalation),
+            const SizedBox(height: 16),
+          ],
+
+          // SLA & Deadlines Card
+          if (_slaData != null) ...[
+            _buildSLACard(),
+            const SizedBox(height: 16),
+          ],
+
+          // Multi-Signal Operational Risk Card (Staff Only)
+          if (!_isCitizen && _riskData != null) ...[
+            _buildRiskAnalysisCard(),
+            const SizedBox(height: 16),
+          ],
 
           // Header Card
           Container(
@@ -854,10 +1043,17 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
                     label: const Text('Propose Resolution'),
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.statusSuccess),
                   ),
+                ElevatedButton.icon(
+                  onPressed: _showEscalateDialog,
+                  icon: const Icon(Icons.warning_amber_rounded, size: 16),
+                  label: const Text('Escalate Case'),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.statusError),
+                ),
               ],
             ),
             const SizedBox(height: 20),
           ],
+
 
           // Timeline
           const Text('Chronological Case Journey', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -1712,4 +1908,178 @@ class _CaseDetailScreenState extends State<CaseDetailScreen> with SingleTickerPr
       ),
     );
   }
+
+  Widget _buildEscalationBanner(EscalationModel? activeEscalation) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.statusError.withOpacity(0.09),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.statusError.withOpacity(0.35), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: AppColors.statusError, size: 22),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'CASE ESCALATED TO LEADERSHIP',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.statusError, fontSize: 13, letterSpacing: 0.5),
+                ),
+              ),
+              if (_isLeadOrManager && activeEscalation != null)
+                TextButton.icon(
+                  onPressed: () => _showResolveEscalationDialog(activeEscalation),
+                  icon: const Icon(Icons.check_circle_outline, size: 16, color: AppColors.statusSuccess),
+                  label: const Text('Resolve', style: TextStyle(color: AppColors.statusSuccess, fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+            ],
+          ),
+          if (activeEscalation != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              activeEscalation.reason,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Trigger: ${activeEscalation.triggerType.replaceAll("_", " ").toUpperCase()} • Logged by ${activeEscalation.escalatedByName ?? "System"}',
+              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+            ),
+          ] else ...[
+            const SizedBox(height: 6),
+            const Text(
+              'This case has been flagged for prioritized managerial intervention.',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSLACard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.timer_outlined, size: 18, color: AppColors.primary),
+                  SizedBox(width: 6),
+                  Text('SLA & Resolution Target', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _slaData!.statusColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _slaData!.resolutionRemainingText,
+                  style: TextStyle(color: _slaData!.statusColor, fontWeight: FontWeight.bold, fontSize: 11),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: (_slaData!.resolutionProgressPercentage / 100.0).clamp(0.0, 1.0),
+              backgroundColor: AppColors.border,
+              valueColor: AlwaysStoppedAnimation<Color>(_slaData!.statusColor),
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Target: ${_slaData!.resolutionTargetHours}h resolution • ${_slaData!.responseTargetHours}h first action',
+                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+              ),
+              if (!_isCitizen)
+                InkWell(
+                  onTap: _handleRecalculateSLA,
+                  child: const Text('Recalculate', style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRiskAnalysisCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _riskData!.tierColor.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.shield_outlined, size: 18, color: _riskData!.tierColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Operational Risk (${_riskData!.riskScore}/100)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _riskData!.tierColor),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _riskData!.tierColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${_riskData!.riskTier.toUpperCase()} RISK',
+                  style: TextStyle(color: _riskData!.tierColor, fontWeight: FontWeight.bold, fontSize: 11),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ..._riskData!.riskFactors.map(
+            (factor) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('• ', style: TextStyle(color: _riskData!.tierColor, fontWeight: FontWeight.bold)),
+                  Expanded(
+                    child: Text(factor, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
+

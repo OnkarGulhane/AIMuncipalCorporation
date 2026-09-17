@@ -7,6 +7,7 @@ from app.api.v1.router import api_v1_router
 from app.core.config import settings
 from app.core.database import Base, engine
 from app.core.logging import logger
+from app.core.scheduler import start_scheduler, shutdown_scheduler
 
 
 @asynccontextmanager
@@ -18,8 +19,16 @@ async def lifespan(app: FastAPI):
     # In development, create tables if using SQLite or fresh db before migrations
     Base.metadata.create_all(bind=engine)
     logger.info("Database connectivity established and schemas checked.")
+    
+    # Start in-process background scheduler for SLA & Risk monitoring
+    start_scheduler()
+    
     yield
+    
+    # Gracefully stop scheduler
+    shutdown_scheduler()
     logger.info(f"Shutting down {settings.PROJECT_NAME}.")
+
 
 
 app = FastAPI(

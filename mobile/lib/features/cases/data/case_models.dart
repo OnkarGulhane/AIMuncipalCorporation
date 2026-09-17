@@ -225,6 +225,7 @@ class CaseModel {
   final String? resolutionNotes;
   final String? rejectionReason;
   final DateTime? closedAt;
+  final bool isEscalated;
   final DateTime createdAt;
   final DateTime updatedAt;
   final UserModel? citizen;
@@ -250,6 +251,7 @@ class CaseModel {
     this.resolutionNotes,
     this.rejectionReason,
     this.closedAt,
+    this.isEscalated = false,
     required this.createdAt,
     required this.updatedAt,
     this.citizen,
@@ -277,6 +279,7 @@ class CaseModel {
       resolutionNotes: json['resolution_notes'] as String?,
       rejectionReason: json['rejection_reason'] as String?,
       closedAt: json['closed_at'] != null ? DateTime.tryParse(json['closed_at'].toString()) : null,
+      isEscalated: json['is_escalated'] as bool? ?? false,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),

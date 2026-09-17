@@ -49,6 +49,16 @@ from app.schemas.ai import (
     AIApplySuggestionsRequest,
     AICaseSummaryResponse,
 )
+from app.schemas.sla import (
+    CaseSLAResponse,
+    RiskSignalItem,
+    RiskAnalysisResponse,
+)
+from app.schemas.escalation import (
+    EscalationCreate,
+    EscalationUpdate,
+    EscalationResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -101,4 +111,11 @@ __all__ = [
     "AIDraftResponse",
     "AIApplySuggestionsRequest",
     "AICaseSummaryResponse",
+    "CaseSLAResponse",
+    "RiskSignalItem",
+    "RiskAnalysisResponse",
+    "EscalationCreate",
+    "EscalationUpdate",
+    "EscalationResponse",
 ]
+

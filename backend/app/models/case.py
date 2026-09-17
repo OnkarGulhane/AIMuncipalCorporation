@@ -62,6 +62,7 @@ class Case(BaseModel):
     resolution_notes = Column(Text, nullable=True)
     rejection_reason = Column(Text, nullable=True)
     closed_at = Column(DateTime(timezone=True), nullable=True)
+    is_escalated = Column(Boolean, default=False, index=True, nullable=False)
 
     # Relationships
     citizen = relationship("User", foreign_keys=[citizen_id])
@@ -110,6 +111,18 @@ class Case(BaseModel):
         back_populates="case_rel",
         cascade="all, delete-orphan",
         order_by="AIAnalysis.created_at.desc()",
+    )
+    sla = relationship(
+        "CaseSLA",
+        back_populates="case_rel",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    escalations = relationship(
+        "CaseEscalation",
+        back_populates="case_rel",
+        cascade="all, delete-orphan",
+        order_by="CaseEscalation.created_at.desc()",
     )
 
     def __repr__(self) -> str:

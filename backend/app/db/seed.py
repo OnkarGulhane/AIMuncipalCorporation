@@ -426,7 +426,30 @@ def seed_database():
 
             logger.info("Sample demo cases seeded across reported, assigned, and resolution_proposed states.")
 
+        # 6. Ensure SLA and sample Escalation for existing cases
+        all_cases = db.query(Case).all()
+        from app.services.sla_service import initialize_or_update_case_sla
+        from app.models.escalation import CaseEscalation, EscalationStatus, EscalationTrigger
+        for c in all_cases:
+            initialize_or_update_case_sla(db, c)
+
+        # Seed sample escalation on Case 1 if none exists
+        if all_cases and not db.query(CaseEscalation).first():
+            c1 = all_cases[0]
+            c1.is_escalated = True
+            c1.status = CaseStatus.ESCALATED.value
+            db.add(CaseEscalation(
+                case_id=c1.id,
+                escalated_by_id=user_map.get(UserRole.OPERATOR.value).id if user_map.get(UserRole.OPERATOR.value) else None,
+                trigger_type=EscalationTrigger.OPERATOR_REQUEST.value,
+                reason="High vehicular congestion and school bus safety risk; requesting immediate asphalt roller dispatch.",
+                status=EscalationStatus.ACTIVE.value,
+            ))
+            db.commit()
+            logger.info(f"Seeded sample escalation on Case {c1.case_number}")
+
         logger.info("Database seeding completed successfully.")
+
     except Exception as e:
         logger.error(f"Error during seeding: {str(e)}")
         db.rollback()

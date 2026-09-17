@@ -13,6 +13,8 @@ from app.models.activity import (
 )
 from app.models.attachment import CaseAttachment
 from app.models.ai_analysis import AIAnalysis
+from app.models.sla import CaseSLA, SLAStatus
+from app.models.escalation import CaseEscalation, EscalationTrigger, EscalationStatus
 
 __all__ = [
     "BaseModel",
@@ -35,4 +37,10 @@ __all__ = [
     "TaskStatus",
     "CaseAttachment",
     "AIAnalysis",
+    "CaseSLA",
+    "SLAStatus",
+    "CaseEscalation",
+    "EscalationTrigger",
+    "EscalationStatus",
 ]
+
