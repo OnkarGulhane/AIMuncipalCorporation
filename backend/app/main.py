@@ -1,7 +1,10 @@
+import os
 import datetime
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.api.v1.endpoints import health
 from app.api.v1.router import api_v1_router
@@ -90,13 +93,24 @@ app.add_exception_handler(AppError, app_error_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
+# Mount Interactive Web Portal Static App
+portal_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "static_portal"))
+if os.path.exists(portal_dir):
+    app.mount("/portal", StaticFiles(directory=portal_dir, html=True), name="portal")
+
 
 @app.get("/", tags=["Root"])
 def root():
+    return RedirectResponse(url="/portal")
+
+
+@app.get("/api-info", tags=["Root"])
+def api_info():
     return {
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT,
+        "portal": "/portal",
         "documentation": "/docs" if settings.ENABLE_DOCS else "disabled",
         "health": "/health",
         "ready": "/ready",
