@@ -6,6 +6,7 @@ from app.core.security import create_access_token
 from app.models.user import User, UserRole
 from app.schemas.token import TokenResponse
 from app.schemas.user import UserCreate, UserLogin, UserResponse
+from app.schemas.organization import PermissionDescriptor
 from app.services.user_service import user_service
 
 router = APIRouter()
@@ -91,6 +92,17 @@ def get_current_user_profile(
     Retrieve authenticated user profile.
     """
     return UserResponse.model_validate(current_user)
+
+
+@router.get("/permissions", response_model=PermissionDescriptor, summary="Role Permission Capabilities")
+def get_user_permissions(
+    current_user: User = Depends(get_current_active_user),
+) -> PermissionDescriptor:
+    """
+    Retrieve current user's role-based capability and permissions descriptor.
+    """
+    from app.services.organization_service import organization_service
+    return organization_service.get_role_permissions(current_user.role)
 
 
 @router.post("/refresh", response_model=TokenResponse, summary="Refresh Access Token")

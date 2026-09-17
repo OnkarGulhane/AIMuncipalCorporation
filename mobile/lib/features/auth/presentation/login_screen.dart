@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/auth_service.dart';
-import 'dashboard_preview_screen.dart';
+import '../../dashboard/presentation/role_shell_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -59,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (res.isSuccess && res.data != null) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => DashboardPreviewScreen(user: res.data!.user),
+          builder: (_) => RoleShellScreen(user: res.data!.user),
         ),
       );
     } else {

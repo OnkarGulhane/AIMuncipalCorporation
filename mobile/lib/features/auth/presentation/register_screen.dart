@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/auth_service.dart';
-import 'dashboard_preview_screen.dart';
+import '../../dashboard/presentation/role_shell_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -49,7 +49,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (res.isSuccess && res.data != null) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => DashboardPreviewScreen(user: res.data!.user),
+          builder: (_) => RoleShellScreen(user: res.data!.user),
         ),
         (route) => false,
       );
