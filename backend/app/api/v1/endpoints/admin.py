@@ -2,6 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.api.dependencies import require_roles
 from app.core.database import get_db
 from app.models.user import User, UserRole
@@ -83,7 +84,7 @@ def update_user_status(
     payload: StatusUpdateRequest,
     db: Session = Depends(get_db),
     admin: User = AdminRequired,
-) -> UserResponse:
+):
     """Activate or deactivate a user account."""
     target_user = user_service.get_by_id(db, user_id=user_id)
     if not target_user:
@@ -94,3 +95,71 @@ def update_user_status(
     db.commit()
     db.refresh(target_user)
     return UserResponse.model_validate(target_user)
+
+
+@router.get("/system-stats", summary="Get System-Wide Statistics (Admin Only)")
+def get_system_stats(
+    db: Session = Depends(get_db),
+    admin: User = AdminRequired,
+):
+    """Aggregates high-level system metrics and entity counts."""
+    from app.models.case import Case
+    from app.models.organization import Department, Team, Category
+    from app.models.escalation import CaseEscalation
+    from app.models.notification import Notification
+
+    total_users = db.query(User).count()
+    users_by_role = {}
+    for r, count in db.query(User.role, func.count(User.id)).group_by(User.role).all():
+        users_by_role[r] = count
+
+    return {
+        "total_users": total_users,
+        "users_by_role": users_by_role,
+        "total_departments": db.query(Department).count(),
+        "total_teams": db.query(Team).count(),
+        "total_categories": db.query(Category).count(),
+        "total_cases": db.query(Case).count(),
+        "total_escalations": db.query(CaseEscalation).count(),
+        "total_notifications_sent": db.query(Notification).count(),
+        "database_status": "healthy",
+    }
+
+
+@router.get("/audit-logs", summary="Explore System Audit Trail (Admin & Manager)")
+def get_audit_logs(
+    case_id: Optional[int] = None,
+    action: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    admin: User = AdminRequired,
+):
+    """Query comprehensive timeline history across all municipal cases."""
+    from app.models.case import CaseTimeline, Case
+
+    query = db.query(CaseTimeline)
+    if case_id is not None:
+        query = query.filter(CaseTimeline.case_id == case_id)
+    if action is not None:
+        query = query.filter(CaseTimeline.action == action)
+
+    logs = query.order_by(CaseTimeline.created_at.desc()).offset(offset).limit(limit).all()
+
+    results = []
+    for l in logs:
+        results.append({
+            "id": l.id,
+            "case_id": l.case_id,
+            "case_number": l.case_rel.case_number if l.case_rel else None,
+            "actor_id": l.actor_id,
+            "actor_name": l.actor.full_name if l.actor else "System",
+            "actor_role": l.actor.role if l.actor else "system",
+            "action": l.action,
+            "old_value": l.old_value,
+            "new_value": l.new_value,
+            "notes": l.notes,
+            "created_at": l.created_at,
+        })
+    return results
+

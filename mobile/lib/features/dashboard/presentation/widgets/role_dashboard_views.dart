@@ -5,8 +5,12 @@ import '../../../cases/data/case_models.dart';
 import '../../../cases/data/case_service.dart';
 import '../../../cases/presentation/case_detail_screen.dart';
 import '../../../cases/presentation/create_case_screen.dart';
+import '../../data/analytics_models.dart';
+import '../../data/analytics_service.dart';
 
-// --- CITIZEN / REQUESTER VIEW ---
+// ---------------------------------------------------------------------------
+// 1. CITIZEN / REQUESTER VIEW
+// ---------------------------------------------------------------------------
 class CitizenDashboardView extends StatefulWidget {
   final UserModel user;
 
@@ -18,31 +22,44 @@ class CitizenDashboardView extends StatefulWidget {
 
 class _CitizenDashboardViewState extends State<CitizenDashboardView> {
   final CaseService _caseService = CaseService();
+  final AnalyticsService _analyticsService = AnalyticsService();
+
   bool _isLoading = true;
   List<CaseModel> _myCases = [];
+  CitizenAnalyticsModel? _analytics;
 
   @override
   void initState() {
     super.initState();
-    _loadCases();
+    _loadData();
   }
 
-  Future<void> _loadCases() async {
+  Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final res = await _caseService.listCases();
+    final caseRes = await _caseService.listCases();
+    final anaRes = await _analyticsService.getCitizenAnalytics();
+
     if (!mounted) return;
     setState(() {
       _isLoading = false;
-      if (res.isSuccess && res.data != null) {
-        _myCases = res.data!.items;
+      if (caseRes.isSuccess && caseRes.data != null) {
+        _myCases = caseRes.data!.items;
+      }
+      if (anaRes.isSuccess && anaRes.data != null) {
+        _analytics = anaRes.data;
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final activeCount = _analytics?.activeCount ?? _myCases.where((c) => c.status != CaseStatus.closed && c.status != CaseStatus.confirmed).length;
+    final waitingInfo = _analytics?.waitingInfoCount ?? 0;
+    final pendingConf = _analytics?.pendingConfirmationCount ?? 0;
+    final resolvedCount = _analytics?.resolvedCount ?? 0;
+
     return RefreshIndicator(
-      onRefresh: _loadCases,
+      onRefresh: _loadData,
       child: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
@@ -66,7 +83,7 @@ class _CitizenDashboardViewState extends State<CitizenDashboardView> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Reporting Ward: ${widget.user.ward ?? "Shivaji Nagar - Ward 12"}',
+                  'Reporting Ward: ${widget.user.ward ?? "Ward 12"}',
                   style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
                 const SizedBox(height: 16),
@@ -74,7 +91,7 @@ class _CitizenDashboardViewState extends State<CitizenDashboardView> {
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const CreateCaseScreen()),
-                    ).then((_) => _loadCases());
+                    ).then((_) => _loadData());
                   },
                   icon: const Icon(Icons.add_photo_alternate, size: 20),
                   label: const Text('Report New Complaint'),
@@ -87,6 +104,20 @@ class _CitizenDashboardViewState extends State<CitizenDashboardView> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+
+          // Summary Stats Grid
+          Row(
+            children: [
+              _buildMetricCard('Active', activeCount.toString(), Icons.pending_actions, AppColors.primary),
+              const SizedBox(width: 8),
+              _buildMetricCard('Action Needed', waitingInfo.toString(), Icons.help_outline, AppColors.warning),
+              const SizedBox(width: 8),
+              _buildMetricCard('Pending Review', pendingConf.toString(), Icons.verified_outlined, const Color(0xFF0284C7)),
+              const SizedBox(width: 8),
+              _buildMetricCard('Resolved', resolvedCount.toString(), Icons.check_circle_outline, AppColors.secondary),
+            ],
+          ),
           const SizedBox(height: 20),
 
           // Quick Report Categories
@@ -94,7 +125,7 @@ class _CitizenDashboardViewState extends State<CitizenDashboardView> {
             'Quick Report Categories',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
           Row(
             children: [
@@ -107,11 +138,12 @@ class _CitizenDashboardViewState extends State<CitizenDashboardView> {
           ),
           const SizedBox(height: 24),
 
+          // My Complaints Section
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'My Active Complaints',
+                'My Grievance Trackers',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
               ),
               Text(
@@ -153,7 +185,7 @@ class _CitizenDashboardViewState extends State<CitizenDashboardView> {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => CaseDetailScreen(caseId: item.id)),
-                    ).then((_) => _loadCases());
+                    ).then((_) => _loadData());
                   },
                   child: Container(
                     padding: const EdgeInsets.all(16),
@@ -207,13 +239,35 @@ class _CitizenDashboardViewState extends State<CitizenDashboardView> {
     return '${dt.day}/${dt.month}/${dt.year}';
   }
 
+  Widget _buildMetricCard(String label, String value, IconData icon, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(height: 4),
+            Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+            const SizedBox(height: 2),
+            Text(label, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCategoryTile(IconData icon, String title, Color color, String catTag) {
     return Expanded(
       child: InkWell(
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => CreateCaseScreen(initialCategory: catTag)),
-          ).then((_) => _loadCases());
+          ).then((_) => _loadData());
         },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
@@ -239,7 +293,9 @@ class _CitizenDashboardViewState extends State<CitizenDashboardView> {
   }
 }
 
-// --- CASE OPERATOR VIEW ---
+// ---------------------------------------------------------------------------
+// 2. CASE OPERATOR VIEW
+// ---------------------------------------------------------------------------
 class OperatorDashboardView extends StatefulWidget {
   final UserModel user;
 
@@ -251,56 +307,93 @@ class OperatorDashboardView extends StatefulWidget {
 
 class _OperatorDashboardViewState extends State<OperatorDashboardView> {
   final CaseService _caseService = CaseService();
+  final AnalyticsService _analyticsService = AnalyticsService();
+
   bool _isLoading = true;
   List<CaseModel> _queueCases = [];
+  OperatorAnalyticsModel? _analytics;
 
   @override
   void initState() {
     super.initState();
-    _loadQueue();
+    _loadData();
   }
 
-  Future<void> _loadQueue() async {
+  Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final res = await _caseService.listCases();
+    final caseRes = await _caseService.listCases();
+    final anaRes = await _analyticsService.getOperatorAnalytics();
+
     if (!mounted) return;
     setState(() {
       _isLoading = false;
-      if (res.isSuccess && res.data != null) {
-        _queueCases = res.data!.items;
+      if (caseRes.isSuccess && caseRes.data != null) {
+        _queueCases = resFilter(caseRes.data!.items);
+      }
+      if (anaRes.isSuccess && anaRes.data != null) {
+        _analytics = anaRes.data;
       }
     });
   }
 
+  List<CaseModel> resFilter(List<CaseModel> items) {
+    return items;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final assignedCount = _queueCases.where((c) => c.status == CaseStatus.assigned).length;
-    final highPriorityCount = _queueCases.where((c) => c.priority == CasePriority.high || c.priority == CasePriority.critical).length;
+    final activeAssigned = _analytics?.assignedActiveCount ?? _queueCases.where((c) => c.status == CaseStatus.assigned).length;
+    final highPriority = _analytics?.highPriorityCount ?? _queueCases.where((c) => c.priority == CasePriority.high || c.priority == CasePriority.critical).length;
+    final pendingTasks = _analytics?.pendingTasksCount ?? 0;
+    final escalations = _analytics?.activeEscalationsCount ?? 0;
 
     return RefreshIndicator(
-      onRefresh: _loadQueue,
+      onRefresh: _loadData,
       child: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
           Row(
             children: [
-              _buildMetricTile('Assigned Queue', assignedCount.toString(), AppColors.primary),
-              const SizedBox(width: 10),
-              _buildMetricTile('High / Critical', highPriorityCount.toString(), AppColors.statusError),
-              const SizedBox(width: 10),
-              _buildMetricTile('Total Cases', _queueCases.length.toString(), AppColors.secondary),
+              _buildMetricTile('Assigned Queue', activeAssigned.toString(), AppColors.primary),
+              const SizedBox(width: 8),
+              _buildMetricTile('High / Critical', highPriority.toString(), AppColors.statusError),
+              const SizedBox(width: 8),
+              _buildMetricTile('Pending Tasks', pendingTasks.toString(), const Color(0xFF0284C7)),
+              const SizedBox(width: 8),
+              _buildMetricTile('Escalated', escalations.toString(), AppColors.accent),
             ],
           ),
           const SizedBox(height: 20),
 
-          const Text(
-            'Operational Case Queue',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Operational Case Queue',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              ),
+              Text(
+                '${_queueCases.length} items',
+                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
 
           if (_isLoading)
             const Center(child: Padding(padding: EdgeInsets.all(24.0), child: CircularProgressIndicator()))
+          else if (_queueCases.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: const Center(
+                child: Text('No active cases assigned to your queue.', style: TextStyle(color: AppColors.textMuted)),
+              ),
+            )
           else
             ListView.separated(
               shrinkWrap: true,
@@ -313,7 +406,7 @@ class _OperatorDashboardViewState extends State<OperatorDashboardView> {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => CaseDetailScreen(caseId: item.id)),
-                    ).then((_) => _loadQueue());
+                    ).then((_) => _loadData());
                   },
                   child: Container(
                     padding: const EdgeInsets.all(14),
@@ -370,7 +463,7 @@ class _OperatorDashboardViewState extends State<OperatorDashboardView> {
   Widget _buildMetricTile(String label, String value, Color color) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
         decoration: BoxDecoration(
           color: color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(12),
@@ -378,9 +471,9 @@ class _OperatorDashboardViewState extends State<OperatorDashboardView> {
         ),
         child: Column(
           children: [
-            Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
+            Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
             const SizedBox(height: 4),
-            Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: color)),
+            Text(label, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -388,93 +481,147 @@ class _OperatorDashboardViewState extends State<OperatorDashboardView> {
   }
 }
 
-// --- TEAM LEAD / SUPERVISOR VIEW ---
-class TeamLeadDashboardView extends StatelessWidget {
+// ---------------------------------------------------------------------------
+// 3. TEAM LEAD / SUPERVISOR VIEW
+// ---------------------------------------------------------------------------
+class TeamLeadDashboardView extends StatefulWidget {
   final UserModel user;
 
   const TeamLeadDashboardView({super.key, required this.user});
 
   @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16.0),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF7C3AED), Color(0xFF6D28D9)],
-            ),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Road Rapid Response Team Roster', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text('Department: ${user.department ?? "Roads & Infrastructure"}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
-              const SizedBox(height: 12),
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _LeadMetric('Team Load', '24 Cases'),
-                  _LeadMetric('SLA Met', '94.2%'),
-                  _LeadMetric('Escalations', '2 Active'),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
+  State<TeamLeadDashboardView> createState() => _TeamLeadDashboardViewState();
+}
 
-        const Text('At-Risk & Escalated Complaints', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
+class _TeamLeadDashboardViewState extends State<TeamLeadDashboardView> {
+  final AnalyticsService _service = AnalyticsService();
+  bool _isLoading = true;
+  TeamLeadAnalyticsModel? _analytics;
 
-        _buildEscalationTile(
-          caseNum: 'MC-2026-0799',
-          title: 'Culvert block causing road flooding in heavy rain',
-          operator: 'Rohan Deshmukh',
-          reason: 'SLA breach approaching (< 2 hours remaining)',
-        ),
-      ],
-    );
+  @override
+  void initState() {
+    super.initState();
+    _load();
   }
 
-  Widget _buildEscalationTile({
-    required String caseNum,
-    required String title,
-    required String operator,
-    required String reason,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.statusError.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(caseNum, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              const Chip(
-                label: Text('ESCALATED', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
-                backgroundColor: AppColors.statusError,
-                padding: EdgeInsets.zero,
-                visualDensity: VisualDensity.compact,
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-          const SizedBox(height: 6),
-          Text('Assigned Operator: $operator', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-          Text('Reason: $reason', style: const TextStyle(fontSize: 12, color: AppColors.statusError)),
-        ],
-      ),
+  Future<void> _load() async {
+    setState(() => _isLoading = true);
+    final res = await _service.getTeamLeadAnalytics();
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      if (res.isSuccess && res.data != null) {
+        _analytics = res.data;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: [
+                // Team Banner
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF7C3AED), Color(0xFF6D28D9)],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_analytics?.teamName ?? 'Field Response Squad', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text('Department: ${_analytics?.departmentName ?? widget.user.department ?? "Municipal Operations"}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                      const SizedBox(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _LeadMetric('Team Cases', '${_analytics?.totalCases ?? 0}'),
+                          _LeadMetric('SLA Compliance', '${_analytics?.slaCompliancePercent.toStringAsFixed(1) ?? "100"}%'),
+                          _LeadMetric('Escalations', '${_analytics?.activeEscalations ?? 0} Active'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Operator Workload Roster
+                const Text('Field Operator Workloads', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+
+                if (_analytics?.operatorWorkloads.isEmpty ?? true)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: const Text('No operators assigned to this department squad.', style: TextStyle(color: AppColors.textMuted)),
+                  )
+                else
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _analytics!.operatorWorkloads.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, idx) {
+                      final op = _analytics!.operatorWorkloads[idx];
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: AppColors.primary.withOpacity(0.12),
+                              child: Text(op.operatorName.substring(0, 1).toUpperCase(), style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(op.operatorName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                  const SizedBox(height: 2),
+                                  Text('${op.completedCases} completed • ${op.overdueCases} overdue', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: op.activeCases > 5 ? AppColors.warning.withOpacity(0.12) : AppColors.primary.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${op.activeCases} active',
+                                style: TextStyle(
+                                  color: op.activeCases > 5 ? AppColors.warning : AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
     );
   }
 }
@@ -495,66 +642,156 @@ class _LeadMetric extends StatelessWidget {
   }
 }
 
-// --- MUNICIPAL MANAGER VIEW ---
-class ManagerDashboardView extends StatelessWidget {
+// ---------------------------------------------------------------------------
+// 4. MUNICIPAL MANAGER VIEW
+// ---------------------------------------------------------------------------
+class ManagerDashboardView extends StatefulWidget {
   final UserModel user;
 
   const ManagerDashboardView({super.key, required this.user});
 
   @override
+  State<ManagerDashboardView> createState() => _ManagerDashboardViewState();
+}
+
+class _ManagerDashboardViewState extends State<ManagerDashboardView> {
+  final AnalyticsService _service = AnalyticsService();
+  bool _isLoading = true;
+  ManagerAnalyticsModel? _data;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _isLoading = true);
+    final res = await _service.getManagerAnalytics();
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      if (res.isSuccess && res.data != null) {
+        _data = res.data;
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16.0),
-      children: [
-        const Text('City-Wide Operations & Analytics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: [
+                const Text('City-Wide Grievance Intelligence', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
 
-        Row(
-          children: [
-            _buildStatCard('Total Volume', '1,428', Icons.bar_chart, AppColors.primary),
-            const SizedBox(width: 10),
-            _buildStatCard('Resolved', '1,280', Icons.check_circle, AppColors.statusSuccess),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            _buildStatCard('Avg Resolution', '26.4h', Icons.timer, AppColors.secondary),
-            const SizedBox(width: 10),
-            _buildStatCard('SLA Compliance', '91.8%', Icons.verified, const Color(0xFF0284C7)),
-          ],
-        ),
-        const SizedBox(height: 20),
+                // KPI Grid
+                Row(
+                  children: [
+                    _buildStatCard('Total Cases', '${_data?.totalCases ?? 0}', Icons.bar_chart, AppColors.primary),
+                    const SizedBox(width: 10),
+                    _buildStatCard('Resolution Rate', '${_data?.resolutionRatePercent.toStringAsFixed(1) ?? "0"}%', Icons.check_circle, AppColors.statusSuccess),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    _buildStatCard('Avg Resolution', '${_data?.avgResolutionTimeHours.toStringAsFixed(1) ?? "0"}h', Icons.timer, AppColors.secondary),
+                    const SizedBox(width: 10),
+                    _buildStatCard('SLA Compliance', '${_data?.slaCompliancePercent.toStringAsFixed(1) ?? "100"}%', Icons.verified, const Color(0xFF0284C7)),
+                  ],
+                ),
+                const SizedBox(height: 20),
 
-        const Text('AI Pattern & Ward Hotspots', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
+                // AI Operational Insights Card
+                const Text('AI Operational Insights', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
 
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.accent.withOpacity(0.06),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.accent.withOpacity(0.2)),
-          ),
-          child: const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.auto_awesome, color: AppColors.accent, size: 20),
-                  SizedBox(width: 8),
-                  Text('Emerging Cluster Alert (AI)', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.accent)),
-                ],
-              ),
-              SizedBox(height: 8),
-              Text(
-                'High density of road damage complaints detected in Ward 12 near Shivaji Nagar main artery over last 48 hours. Suggesting preventive road resurfacing inspection.',
-                style: TextStyle(fontSize: 13),
-              ),
-            ],
-          ),
-        ),
-      ],
+                if (_data?.aiOperationalInsights.isNotEmpty ?? false)
+                  ..._data!.aiOperationalInsights.map((ins) {
+                    final isHigh = ins.severity == 'critical' || ins.severity == 'high';
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: (isHigh ? AppColors.accent : AppColors.primary).withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: (isHigh ? AppColors.accent : AppColors.primary).withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.auto_awesome, color: isHigh ? AppColors.accent : AppColors.primary, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(ins.title, style: TextStyle(fontWeight: FontWeight.bold, color: isHigh ? AppColors.accent : AppColors.primary, fontSize: 14)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(ins.description, style: const TextStyle(fontSize: 13)),
+                          const SizedBox(height: 6),
+                          Text('💡 Recommendation: ${ins.recommendation}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                        ],
+                      ),
+                    );
+                  }).toList()
+                else
+                  const SizedBox(),
+
+                const SizedBox(height: 16),
+
+                // Ward Intelligence Hotspots
+                const Text('Ward Hotspots & Response Times', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+
+                if (_data?.wardMetrics.isNotEmpty ?? false)
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _data!.wardMetrics.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, idx) {
+                      final w = _data!.wardMetrics[idx];
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(w.ward, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                const SizedBox(height: 2),
+                                Text('${w.activeCases} active • ${w.highRiskCases} high risk', style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text('${w.totalCases} Total', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary)),
+                                if (w.topCategory != null)
+                                  Text(w.topCategory!, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
     );
   }
 
@@ -585,28 +822,122 @@ class ManagerDashboardView extends StatelessWidget {
   }
 }
 
-// --- ADMINISTRATOR VIEW ---
-class AdminDashboardView extends StatelessWidget {
+// ---------------------------------------------------------------------------
+// 5. ADMINISTRATOR VIEW
+// ---------------------------------------------------------------------------
+class AdminDashboardView extends StatefulWidget {
   final UserModel user;
 
   const AdminDashboardView({super.key, required this.user});
 
   @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16.0),
-      children: [
-        const Text('System Administration & Master Data', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 14),
+  State<AdminDashboardView> createState() => _AdminDashboardViewState();
+}
 
-        _buildAdminTile(Icons.people_outline, 'User & Staff Management', 'Configure accounts, roles, and status', AppColors.primary),
-        const SizedBox(height: 10),
-        _buildAdminTile(Icons.business_outlined, 'Departments & Teams', '5 Active Departments, 12 Teams', AppColors.secondary),
-        const SizedBox(height: 10),
-        _buildAdminTile(Icons.category_outlined, 'Categories & SLA Policies', '6 Categories, Standard SLAs configured', const Color(0xFF8B5CF6)),
-        const SizedBox(height: 10),
-        _buildAdminTile(Icons.security, 'Server-Side RBAC & Audit Trails', 'Audit log active, all transitions verified', AppColors.statusError),
-      ],
+class _AdminDashboardViewState extends State<AdminDashboardView> {
+  final AnalyticsService _service = AnalyticsService();
+  bool _isLoading = true;
+  SystemStatsModel? _stats;
+  List<AuditLogEntryModel> _auditLogs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _isLoading = true);
+    final statRes = await _service.getSystemStats();
+    final logRes = await _service.getAuditLogs(limit: 5);
+
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      if (statRes.isSuccess && statRes.data != null) {
+        _stats = statRes.data;
+      }
+      if (logRes.isSuccess && logRes.data != null) {
+        _auditLogs = logRes.data!;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: [
+                const Text('System Administration & Health', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 14),
+
+                _buildAdminTile(Icons.people_outline, 'User Accounts', '${_stats?.totalUsers ?? 0} Total Active Accounts', AppColors.primary),
+                const SizedBox(height: 10),
+                _buildAdminTile(Icons.business_outlined, 'Departments & Teams', '${_stats?.totalDepartments ?? 0} Depts • ${_stats?.totalTeams ?? 0} Squads', AppColors.secondary),
+                const SizedBox(height: 10),
+                _buildAdminTile(Icons.category_outlined, 'Categories & Policies', '${_stats?.totalCategories ?? 0} Categories configured', const Color(0xFF8B5CF6)),
+                const SizedBox(height: 10),
+                _buildAdminTile(Icons.security, 'System Security & Database', 'PostgreSQL ${_stats?.databaseStatus ?? "Healthy"}', AppColors.statusSuccess),
+                const SizedBox(height: 20),
+
+                const Text('Recent Audit History', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+
+                if (_auditLogs.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: const Text('No audit events logged yet.', style: TextStyle(color: AppColors.textMuted)),
+                  )
+                else
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _auditLogs.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, idx) {
+                      final log = _auditLogs[idx];
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(log.caseNumber ?? 'System', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primary)),
+                                Text(
+                                  '${log.createdAt.hour}:${log.createdAt.minute.toString().padLeft(2, '0')}',
+                                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text('${log.actorName ?? "System"}: ${log.action.replaceAll("_", " ").toUpperCase()}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                            if (log.notes != null) ...[
+                              const SizedBox(height: 2),
+                              Text(log.notes!, style: const TextStyle(fontSize: 12, color: AppColors.textMuted), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            ],
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
     );
   }
 

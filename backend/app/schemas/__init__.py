@@ -66,6 +66,22 @@ from app.schemas.notification import (
     NotificationPreferenceUpdate,
     UnreadCountResponse,
 )
+from app.schemas.analytics import (
+    TimeSeriesMetric,
+    DepartmentPerformance,
+    CategoryPerformance,
+    WardPerformance,
+    AIOperationalInsight,
+    ManagerAnalyticsResponse,
+    OperatorWorkload,
+    TeamLeadAnalyticsResponse,
+    OperatorAnalyticsResponse,
+    CitizenActivitySummary,
+    CitizenAnalyticsResponse,
+    WardIntelligenceResponse,
+    AuditLogEntry,
+    SystemStatsResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -129,6 +145,20 @@ __all__ = [
     "NotificationPreferenceResponse",
     "NotificationPreferenceUpdate",
     "UnreadCountResponse",
+    "TimeSeriesMetric",
+    "DepartmentPerformance",
+    "CategoryPerformance",
+    "WardPerformance",
+    "AIOperationalInsight",
+    "ManagerAnalyticsResponse",
+    "OperatorWorkload",
+    "TeamLeadAnalyticsResponse",
+    "OperatorAnalyticsResponse",
+    "CitizenActivitySummary",
+    "CitizenAnalyticsResponse",
+    "WardIntelligenceResponse",
+    "AuditLogEntry",
+    "SystemStatsResponse",
 ]
 
 

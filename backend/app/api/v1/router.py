@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import health, auth, admin, organization, cases, activities, attachments, ai, sla, escalations, notifications
+from app.api.v1.endpoints import health, auth, admin, organization, cases, activities, attachments, ai, sla, escalations, notifications, analytics
 
 api_v1_router = APIRouter()
 
@@ -15,4 +15,5 @@ api_v1_router.include_router(ai.router, prefix="/cases", tags=["AI Copilot & Ins
 api_v1_router.include_router(sla.router, tags=["SLA & Risk"])
 api_v1_router.include_router(escalations.router, tags=["Escalations & Automation"])
 api_v1_router.include_router(notifications.router, prefix="/notifications", tags=["Notifications & Alerts"])
+api_v1_router.include_router(analytics.router, prefix="/analytics", tags=["Dashboards & Analytics"])
 
