@@ -171,9 +171,12 @@ def evaluate_single_case_sla(
     if case.status in responded_statuses:
         if not sla.first_responded_at:
             sla.first_responded_at = now
+        first_resp = sla.first_responded_at
+        if first_resp.tzinfo is None:
+            first_resp = first_resp.replace(tzinfo=timezone.utc)
         sla.response_status = (
             SLAStatus.MET.value
-            if sla.first_responded_at <= resp_due
+            if first_resp <= resp_due
             else SLAStatus.BREACHED.value
         )
     else:
@@ -194,9 +197,12 @@ def evaluate_single_case_sla(
     if case.status in resolved_statuses:
         if not sla.resolved_at:
             sla.resolved_at = now
+        resolved_time = sla.resolved_at
+        if resolved_time.tzinfo is None:
+            resolved_time = resolved_time.replace(tzinfo=timezone.utc)
         sla.resolution_status = (
             SLAStatus.MET.value
-            if sla.resolved_at <= res_due
+            if resolved_time <= res_due
             else SLAStatus.BREACHED.value
         )
     else:

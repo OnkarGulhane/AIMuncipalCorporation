@@ -3,489 +3,1235 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Municipal Corporation — Civic Grievance & Case Manager</title>
+  <title>CivicPulse — Municipal OS & Civic Grievance Workbench</title>
+  
+  <!-- Fonts: Inter, JetBrains Mono, Google Material Symbols -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Top Navigation Header -->
-  <header class="app-header">
-    <div class="header-left">
-      <div class="brand-logo">
-        <div class="logo-icon">🏛️</div>
+
+  <!-- =======================================================================
+       0. DEDICATED AUTHENTICATION OVERLAY & LOGIN GATEWAY
+       ======================================================================= -->
+  <div class="auth-overlay-backdrop" id="auth-overlay">
+    <div class="auth-card">
+      
+      <!-- Brand Header -->
+      <div class="auth-brand-header">
+        <div class="auth-logo-badge">🏛️</div>
         <div>
-          <div class="brand-title">AI Municipal Corporation</div>
-          <div class="brand-subtitle">Intelligent Civic Grievance & Case Manager</div>
+          <h1 class="auth-brand-title">CivicPulse Municipal OS</h1>
+          <p class="auth-brand-subtitle">Official Civic Operations & Grievance Gateway</p>
         </div>
+      </div>
+
+      <!-- Quick Role Login Credentials Cards (For 1-Click Role Login) -->
+      <div class="auth-roles-section">
+        <div class="auth-section-title">
+          <span>Select Account Role for Immediate Login:</span>
+          <span style="font-size: 10.5px; font-weight: 500; color: var(--primary);">1-Click Demo Access</span>
+        </div>
+        <div class="role-cards-grid">
+          <!-- Citizen Role -->
+          <div class="role-login-card" onclick="selectDemoRole('requester')" title="Log in as Citizen (Aarav Sharma)">
+            <div class="role-login-avatar" style="background-color: var(--secondary);">AS</div>
+            <span class="role-login-name">Aarav</span>
+            <span class="role-login-tag">Citizen</span>
+          </div>
+
+          <!-- Field Operator Role -->
+          <div class="role-login-card" onclick="selectDemoRole('operator')" title="Log in as Field Operator (Rohan Deshmukh)">
+            <div class="role-login-avatar" style="background-color: #0284c7;">RD</div>
+            <span class="role-login-name">Rohan</span>
+            <span class="role-login-tag">Operator</span>
+          </div>
+
+          <!-- Team Lead Role -->
+          <div class="role-login-card" onclick="selectDemoRole('team_lead')" title="Log in as Team Lead (Priya Patil)">
+            <div class="role-login-avatar" style="background-color: #7c3aed;">PP</div>
+            <span class="role-login-name">Priya</span>
+            <span class="role-login-tag">Team Lead</span>
+          </div>
+
+          <!-- Ward Manager Role -->
+          <div class="role-login-card active" onclick="selectDemoRole('manager')" title="Log in as Ward Manager (Vikram Kulkarni)">
+            <div class="role-login-avatar" style="background-color: var(--primary);">VK</div>
+            <span class="role-login-name">Vikram</span>
+            <span class="role-login-tag">Manager</span>
+          </div>
+
+          <!-- Administrator Role -->
+          <div class="role-login-card" onclick="selectDemoRole('administrator')" title="Log in as Chief Administrator (Sneha Joshi)">
+            <div class="role-login-avatar" style="background-color: #b91c1c;">SJ</div>
+            <span class="role-login-name">Sneha</span>
+            <span class="role-login-tag">Admin</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Auth Navigation Tabs: Sign In vs Citizen Registration -->
+      <div class="auth-tabs-nav">
+        <button type="button" class="auth-tab-btn active" id="tab-btn-signin" onclick="switchAuthTab('signin')">
+          Sign In to Account
+        </button>
+        <button type="button" class="auth-tab-btn" id="tab-btn-register" onclick="switchAuthTab('register')">
+          Register New Citizen
+        </button>
+      </div>
+
+      <!-- Auth Alert Banner -->
+      <div class="auth-alert-banner" id="auth-alert">
+        <span class="material-symbols-outlined" style="font-size: 18px;">error</span>
+        <span id="auth-alert-text">Invalid credentials</span>
+      </div>
+
+      <!-- SIGN IN FORM -->
+      <form id="form-signin" onsubmit="handleSignInSubmit(event)">
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div class="form-group">
+            <label class="form-label" for="auth-email">
+              <span>Official Email Address</span>
+            </label>
+            <input type="email" class="form-input" id="auth-email" value="manager@demo.com" required placeholder="user@city.gov or citizen@demo.com">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="auth-password">
+              <span>Secure Password</span>
+            </label>
+            <input type="password" class="form-input" id="auth-password" value="Demo@1234" required placeholder="••••••••">
+          </div>
+
+          <button type="submit" class="btn-primary-submit" style="width: 100%; margin-top: 6px;" id="btn-auth-submit">
+            <span class="material-symbols-outlined" style="font-size: 18px;">login</span>
+            <span id="btn-auth-submit-text">Sign In to Municipal OS</span>
+          </button>
+        </div>
+      </form>
+
+      <!-- CITIZEN REGISTRATION FORM -->
+      <form id="form-register" style="display: none;" onsubmit="handleRegisterSubmit(event)">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="reg-name">Full Legal Name *</label>
+            <input type="text" class="form-input" id="reg-name" required placeholder="e.g. Ramesh Kulkarni">
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label" for="reg-email">Email Address *</label>
+              <input type="email" class="form-input" id="reg-email" required placeholder="ramesh@gmail.com">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-phone">Phone Number *</label>
+              <input type="tel" class="form-input" id="reg-phone" required placeholder="+91 98765 43210" value="+91 98201 44552">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="reg-password">Password (Min. 8 characters) *</label>
+            <input type="password" class="form-input" id="reg-password" required placeholder="SecurePassword@123" value="SecurePassword@123">
+          </div>
+
+          <button type="submit" class="btn-primary-submit" style="width: 100%; margin-top: 6px;" id="btn-reg-submit">
+            <span class="material-symbols-outlined" style="font-size: 18px;">person_add</span>
+            <span id="btn-reg-submit-text">Create Citizen Account & Sign In</span>
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       1. TOP APPLICATION HEADER (CIVICPULSE PRECISION)
+       ======================================================================= -->
+  <header class="app-header" id="app-header">
+    <div class="header-left">
+      <a href="#" class="brand-emblem" onclick="showTab('dashboard')">
+        <div class="brand-logo-icon">🏛️</div>
+        <div class="brand-title-wrap">
+          <span class="brand-title">CivicPulse</span>
+          <span class="brand-subtitle">Municipal OS</span>
+        </div>
+      </a>
+
+      <div class="divider-vert"></div>
+
+      <div class="zone-status-badge">
+        <span class="pulse-dot-primary"></span>
+        <span>Zone 4 Core Online</span>
       </div>
     </div>
 
     <div class="header-right">
-      <!-- Role Switcher -->
-      <div class="role-selector-container">
-        <label for="role-select">Switch Role:</label>
-        <select id="role-select" onchange="switchRole(this.value)">
-          <option value="requester">👤 Citizen (Aarav Sharma)</option>
-          <option value="operator">👷 Field Operator (Rohan)</option>
-          <option value="team_lead">👩‍💼 Team Lead (Priya)</option>
-          <option value="manager" selected>👨‍💼 Ward Manager (Vikram)</option>
-          <option value="administrator">👑 Chief Admin (Sneha)</option>
-        </select>
-      </div>
-
-      <!-- User Profile Badge -->
-      <div class="user-profile-badge" id="user-profile-badge">
-        <div class="user-avatar" id="user-avatar">VK</div>
-        <div class="user-meta">
-          <div class="user-name" id="user-name">Vikram Kulkarni</div>
-          <div class="user-role-tag" id="user-role-tag">WARD MANAGER</div>
+      <!-- Authenticated User Profile Chip -->
+      <div class="user-profile-chip" id="user-profile-chip">
+        <div class="user-avatar-circle" id="user-avatar">VK</div>
+        <div class="meta">
+          <span class="name" id="user-name">Vikram Kulkarni</span>
+          <span class="role" id="user-role-tag">Ward Manager</span>
         </div>
       </div>
 
-      <!-- Quick Action Buttons -->
-      <button class="btn btn-primary btn-sm" onclick="openNewCaseModal()" id="btn-report-complaint">
-        <span>+</span> Report Grievance
+      <!-- Quick Report Intake CTA Button -->
+      <button class="header-btn-report" id="btn-report-complaint" onclick="showTab('intake')">
+        <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+        <span>Report Grievance</span>
       </button>
 
-      <button class="btn btn-secondary btn-sm" onclick="triggerSlaSweep()" id="btn-sla-sweep" title="Run background SLA sweep">
-        ⚡ Sweep SLAs
+      <!-- Background SLA Sweep Trigger -->
+      <button class="btn-geo-tool" onclick="triggerSlaSweep()" id="btn-sla-sweep" title="Run background SLA evaluation sweep">
+        <span class="material-symbols-outlined" style="font-size: 14px;">bolt</span>
+        <span>Sweep SLAs</span>
       </button>
 
-      <a href="/docs" target="_blank" class="btn btn-outline btn-sm" title="View Swagger REST API Docs">
-        📖 API Docs
-      </a>
+      <!-- Notifications Bell -->
+      <button class="header-icon-btn" id="btn-notifications" onclick="showTab('notifications')" title="System Notifications">
+        <span class="material-symbols-outlined">notifications</span>
+        <span class="notification-badge-dot" id="notifications-badge-dot"></span>
+      </button>
+
+      <!-- Logout Button -->
+      <button class="btn-logout" id="btn-logout" onclick="performLogout()" title="Log out from current session">
+        <span class="material-symbols-outlined" style="font-size: 16px;">logout</span>
+        <span>Sign Out</span>
+      </button>
     </div>
   </header>
 
-  <!-- Main Application Body -->
-  <main class="app-main">
-    <!-- Sidebar Navigation -->
-    <aside class="app-sidebar">
+  <!-- =======================================================================
+       2. OPERATIONS RAIL (SIDEBAR NAVIGATION)
+       ======================================================================= -->
+  <aside class="app-sidebar" id="app-sidebar">
+    <div>
+      <div class="rail-section-title">Operations Rail</div>
       <nav class="sidebar-nav">
-        <button class="nav-item active" onclick="showTab('dashboard')" id="nav-dashboard">
-          <span class="nav-icon">📊</span> <span id="nav-label-dashboard">Dashboard & Analytics</span>
+        <button class="nav-link active" onclick="showTab('dashboard')" id="nav-dashboard">
+          <div class="link-left">
+            <span class="material-symbols-outlined">dashboard</span>
+            <span>Dashboard & Analytics</span>
+          </div>
         </button>
-        <button class="nav-item" onclick="showTab('cases')" id="nav-cases">
-          <span class="nav-icon">📋</span> <span id="nav-label-cases">Case Management</span>
+
+        <button class="nav-link" onclick="showTab('ai-hub')" id="nav-ai-hub">
+          <div class="link-left">
+            <span class="material-symbols-outlined" style="color: #6366f1;">psychology</span>
+            <span style="font-weight: 600;">AI Intelligence Hub</span>
+          </div>
+          <span class="sidebar-badge" style="background: rgba(99,102,241,0.12); color: #4338ca; border: 1px solid rgba(99,102,241,0.22); font-weight: 700; font-size: 10px; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 6px;">GEMINI 1.5</span>
         </button>
-        <button class="nav-item" onclick="showTab('escalations')" id="nav-escalations">
-          <span class="nav-icon">⚠️</span> SLA & Escalations
-          <span class="nav-badge alert" id="escalations-count">1</span>
+
+        <button class="nav-link" onclick="showTab('intake')" id="nav-intake">
+          <div class="link-left">
+            <span class="material-symbols-outlined">assignment</span>
+            <span>Intake & Triage</span>
+          </div>
+          <span class="sidebar-badge" style="background-color: var(--primary-fixed); color: var(--on-primary-fixed);">New</span>
         </button>
-        <button class="nav-item" onclick="showTab('audit')" id="nav-audit">
-          <span class="nav-icon">🛡️</span> Audit History
+
+        <button class="nav-link" onclick="showTab('cases')" id="nav-cases">
+          <div class="link-left">
+            <span class="material-symbols-outlined">inbox</span>
+            <span>Case Management</span>
+          </div>
+          <span class="sidebar-badge" id="cases-count">0</span>
         </button>
-        <button class="nav-item" onclick="showTab('notifications')" id="nav-notifications">
-          <span class="nav-icon">🔔</span> Notifications
-          <span class="nav-badge" id="notifications-count">0</span>
+
+        <button class="nav-link" onclick="showTab('dispatch')" id="nav-dispatch">
+          <div class="link-left">
+            <span class="material-symbols-outlined">local_shipping</span>
+            <span>Squad Dispatch</span>
+          </div>
+        </button>
+
+        <button class="nav-link" onclick="showTab('escalations')" id="nav-escalations">
+          <div class="link-left">
+            <span class="material-symbols-outlined">warning</span>
+            <span>SLA & Escalations</span>
+          </div>
+          <span class="sidebar-badge alert-badge" id="escalations-count">0 Breached</span>
+        </button>
+
+        <button class="nav-link" onclick="showTab('audit')" id="nav-audit">
+          <div class="link-left">
+            <span class="material-symbols-outlined">verified</span>
+            <span>Immutable Audit Trail</span>
+          </div>
+        </button>
+
+        <button class="nav-link" onclick="showTab('notifications')" id="nav-notifications">
+          <div class="link-left">
+            <span class="material-symbols-outlined">notifications</span>
+            <span>Notifications</span>
+          </div>
+          <span class="sidebar-badge" id="notifications-count">0</span>
         </button>
       </nav>
+    </div>
 
-      <!-- System Status Footer -->
-      <div class="sidebar-footer">
-        <div class="status-indicator">
-          <span class="pulse-dot"></span>
-          <span>FastAPI Engine: <strong>Online</strong></span>
-        </div>
-        <div class="status-sub">APScheduler Active (60s)</div>
+    <!-- Bottom Audit Seal Card -->
+    <div class="sidebar-footer-card">
+      <div class="audit-seal-head">
+        <span class="audit-seal-title">Audit Seal</span>
+        <span class="audit-seal-id">#MUNI-7928</span>
       </div>
-    </aside>
+      <p class="audit-seal-desc">Cryptographically anchored ledger active for Bangalore South.</p>
+    </div>
+  </aside>
 
-    <!-- Content Workspace -->
-    <section class="app-content">
-      
-      <!-- ================================================================= -->
-      <!-- TAB 1: DASHBOARD -->
-      <!-- ================================================================= -->
+  <!-- =======================================================================
+       3. MAIN CONTENT PANES
+       ======================================================================= -->
+  <main class="app-main" id="app-main">
+    <div class="app-content">
+
+      <!-- ===================================================================
+           TAB: AI CIVIC INTELLIGENCE SUITE
+           =================================================================== -->
+      <div class="tab-pane" id="tab-ai-hub">
+        <div class="pane-header">
+          <div>
+            <div class="intake-pill" style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); color: #4338ca; font-weight: 600; padding: 4px 12px; border-radius: 9999px;">
+              <span class="material-symbols-outlined" style="font-size: 15px; color: #6366f1;">auto_awesome</span>
+              <span>MUNICIPAL NEURAL ENGINE • GOOGLE GEMINI 1.5 FLASH</span>
+            </div>
+            <h1 class="pane-title" style="margin-top: 8px; font-size: 24px; font-weight: 800; letter-spacing: -0.02em;">AI Civic Intelligence Suite</h1>
+            <p class="pane-description" style="margin-top: 4px; font-size: 13.5px;">Interactive workbench demonstrating multimodal AI automation for grievance triage, semantic duplicate radar, bilingual Marathi copilot, and predictive dispatch.</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-primary-submit" onclick="showTab('intake')">
+              <span class="material-symbols-outlined" style="font-size: 16px;">add</span>
+              <span>Launch Citizen Intake</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="ai-hub-grid">
+          <!-- 1. AI Vision Camera & Damage Classifier -->
+          <div class="ai-hub-card">
+            <div class="ai-card-header">
+              <div class="ai-card-title-wrap">
+                <div class="ai-card-icon"><span class="material-symbols-outlined">photo_camera</span></div>
+                <div>
+                  <div class="ai-card-title">Computer Vision Triage & Damage Scanner</div>
+                  <span class="ai-badge ai-badge-purple">Multimodal Intake</span>
+                </div>
+              </div>
+              <span class="ai-badge ai-badge-green" id="hub-vision-conf">96% Conf</span>
+            </div>
+            <p class="ai-card-desc">Accepts photo uploads or live camera frames to classify civic category, severity, priority, and generate instant technical damage summaries.</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <button type="button" class="btn-geo-tool" onclick="runHubVisionTest('water')">💧 Water Burst</button>
+              <button type="button" class="btn-geo-tool" onclick="runHubVisionTest('pothole')">🕳️ Pothole Road</button>
+              <button type="button" class="btn-geo-tool" onclick="runHubVisionTest('garbage')">🗑️ Garbage Dump</button>
+              <button type="button" class="btn-geo-tool" onclick="runHubVisionTest('light')">💡 Streetlight</button>
+            </div>
+            <div class="ai-output-box" id="hub-vision-output">
+              <span class="ai-output-title">AI Vision Classification Result:</span>
+              <div id="hub-vision-result-text">Click any preset above to test real-time AI damage classification.</div>
+            </div>
+          </div>
+
+          <!-- 2. AI Real-Time Duplicate Grievance Radar -->
+          <div class="ai-hub-card">
+            <div class="ai-card-header">
+              <div class="ai-card-title-wrap">
+                <div class="ai-card-icon" style="background: #e0f2fe; color: #0284c7;"><span class="material-symbols-outlined">radar</span></div>
+                <div>
+                  <div class="ai-card-title">Semantic Duplicate Detection Radar</div>
+                  <span class="ai-badge ai-badge-purple">Geospatial & Vector Closeness</span>
+                </div>
+              </div>
+              <span class="ai-badge ai-badge-amber">Radius ≤ 150m</span>
+            </div>
+            <p class="ai-card-desc">Calculates semantic text embedding similarity and geospatial radius to eliminate duplicate tickets and suggest unified merges.</p>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" class="form-input" id="hub-dup-input" value="Water pipeline leaking heavily near Star Mall" placeholder="Type complaint to test duplicate match...">
+              <button type="button" class="btn-primary-submit" style="white-space: nowrap; padding: 0 16px;" onclick="runHubDuplicateTest()">Check</button>
+            </div>
+            <div class="ai-output-box" id="hub-dup-output">
+              <span class="ai-output-title">Duplicate Radar Match Result:</span>
+              <div id="hub-dup-result-text">Enter text or click Check to test semantic matching against existing cases.</div>
+            </div>
+          </div>
+
+          <!-- 3. AI Case Summary & Bilingual Marathi/English Copilot -->
+          <div class="ai-hub-card">
+            <div class="ai-card-header">
+              <div class="ai-card-title-wrap">
+                <div class="ai-card-icon" style="background: #fef3c7; color: #d97706;"><span class="material-symbols-outlined">summarize</span></div>
+                <div>
+                  <div class="ai-card-title">Case Journey Summarizer & Marathi Copilot</div>
+                  <span class="ai-badge ai-badge-purple">Bilingual Translation</span>
+                </div>
+              </div>
+              <span class="ai-badge ai-badge-green">English / मराठी</span>
+            </div>
+            <p class="ai-card-desc">Synthesizes multi-stage case lifecycle history into an executive briefing with real-time Marathi translation for field teams.</p>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn-primary-submit" style="width: 100%; justify-content: center;" onclick="runHubSummaryTest()">⚡ Generate Case Summary & Marathi Translation</button>
+            </div>
+            <div class="ai-output-box" id="hub-summary-output">
+              <span class="ai-output-title">AI Case Summary & Translation Output:</span>
+              <div id="hub-summary-result-text">Click above to generate real-time AI summary and bilingual translation.</div>
+            </div>
+          </div>
+
+          <!-- 4. AI Missing Information Inspector -->
+          <div class="ai-hub-card">
+            <div class="ai-card-header">
+              <div class="ai-card-title-wrap">
+                <div class="ai-card-icon" style="background: #fee2e2; color: #dc2626;"><span class="material-symbols-outlined">checklist</span></div>
+                <div>
+                  <div class="ai-card-title">Missing Field & Quality Inspector</div>
+                  <span class="ai-badge ai-badge-purple">Triage Quality Guard</span>
+                </div>
+              </div>
+              <span class="ai-badge ai-badge-green">Parameter Checklist</span>
+            </div>
+            <p class="ai-card-desc">Inspects grievance submission text for missing critical parameters (such as landmark pole #, pipe diameter, road width, duration) to avoid delay.</p>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" class="form-input" id="hub-missing-input" value="Road is broken near market" placeholder="Enter short complaint to test inspector...">
+              <button type="button" class="btn-primary-submit" style="white-space: nowrap; padding: 0 16px;" onclick="runHubMissingInfoTest()">Inspect</button>
+            </div>
+            <div class="ai-output-box" id="hub-missing-output">
+              <span class="ai-output-title">Missing Info Checklist:</span>
+              <div id="hub-missing-result-text">Click Inspect to run the AI Missing Information validator.</div>
+            </div>
+          </div>
+
+          <!-- 5. AI Smart Squad Dispatch Recommender -->
+          <div class="ai-hub-card">
+            <div class="ai-card-header">
+              <div class="ai-card-title-wrap">
+                <div class="ai-card-icon" style="background: #dcfce7; color: #166534;"><span class="material-symbols-outlined">engineering</span></div>
+                <div>
+                  <div class="ai-card-title">Intelligent Squad Dispatch Allocator</div>
+                  <span class="ai-badge ai-badge-purple">Workload Balancing</span>
+                </div>
+              </div>
+              <span class="ai-badge ai-badge-green">Dynamic Allocation</span>
+            </div>
+            <p class="ai-card-desc">Matches civic category code, jurisdictional ward, and active squad capacity to recommend the optimal municipal response crew.</p>
+            <div style="display: flex; gap: 8px;">
+              <select class="form-select" id="hub-squad-cat">
+                <option value="PIPE_BURST">Water Pipeline Burst (Water Dept)</option>
+                <option value="POTHOLES">Severe Road Pothole (Roads Dept)</option>
+                <option value="GARBAGE_OVERFLOW">Garbage Overflow (Sanitation Dept)</option>
+              </select>
+              <button type="button" class="btn-primary-submit" style="white-space: nowrap; padding: 0 16px;" onclick="runHubSquadRecommendationTest()">Recommend</button>
+            </div>
+            <div class="ai-output-box" id="hub-squad-output">
+              <span class="ai-output-title">AI Squad Recommendation:</span>
+              <div id="hub-squad-result-text">Click Recommend to evaluate squad availability and workload.</div>
+            </div>
+          </div>
+
+          <!-- 6. AI SLA Risk Radar & Breach Predictor -->
+          <div class="ai-hub-card">
+            <div class="ai-card-header">
+              <div class="ai-card-title-wrap">
+                <div class="ai-card-icon" style="background: #fef2f2; color: #b91c1c;"><span class="material-symbols-outlined">warning_amber</span></div>
+                <div>
+                  <div class="ai-card-title">Predictive SLA Breach & Risk Radar</div>
+                  <span class="ai-badge ai-badge-purple">Predictive Escalation</span>
+                </div>
+              </div>
+              <span class="ai-badge ai-badge-amber">Preemptive Radar</span>
+            </div>
+            <p class="ai-card-desc">Calculates real-time breach probabilities based on category SLA limit, elapsed hours, weather, and traffic conditions.</p>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn-primary-submit" style="width: 100%; justify-content: center;" onclick="runHubRiskRadarTest()">⚡ Calculate Predictive Breach Risk Score</button>
+            </div>
+            <div class="ai-output-box" id="hub-risk-output">
+              <span class="ai-output-title">Predictive Risk Forecast:</span>
+              <div id="hub-risk-result-text">Click above to calculate AI predictive SLA breach score.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           TAB 1: CITIZEN GRIEVANCE INTAKE WORKBENCH (STITCH SPEC)
+           =================================================================== -->
+      <div class="tab-pane" id="tab-intake">
+        <!-- Context Header & Session Token -->
+        <div class="context-header">
+          <div>
+            <div class="intake-pill">
+              <span class="material-symbols-outlined" style="font-size: 14px;">shield_person</span>
+              <span>Public Intake Portal • Zone 4</span>
+            </div>
+            <h1 class="page-title">Citizen Grievance Submission</h1>
+            <p class="page-subtitle">Official municipal incident registration with real-time jurisdictional verification.</p>
+          </div>
+
+          <div class="session-token-wrap">
+            <div class="session-token-text">
+              <span class="label">Session Token</span>
+              <span class="token" id="intake-session-token">SES-2026-MUNI-0982B</span>
+            </div>
+            <div class="divider-vert"></div>
+            <div class="verified-icon-box" title="Session Authenticated & Cryptographically Verified">
+              <span class="material-symbols-outlined" style="font-size: 22px;">verified_user</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3-Step Stepper Navigation -->
+        <div class="stepper-nav-card">
+          <div class="stepper-grid">
+            <!-- Step 1 (Active) -->
+            <div class="step-card active" id="stepper-tab-1" onclick="switchIntakeStep(1)">
+              <div class="step-num">1</div>
+              <div class="step-meta">
+                <span class="step-tag">Step 01</span>
+                <span class="step-label">Issue Details</span>
+              </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="step-card" id="stepper-tab-2" onclick="switchIntakeStep(2)">
+              <div class="step-num">2</div>
+              <div class="step-meta">
+                <span class="step-tag">Step 02</span>
+                <span class="step-label">Location & Evidence</span>
+              </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="step-card" id="stepper-tab-3" onclick="switchIntakeStep(3)">
+              <div class="step-num">3</div>
+              <div class="step-meta">
+                <span class="step-tag">Step 03</span>
+                <span class="step-label">Review & Submit</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Real-time AI Duplicate Detection Warning Banner -->
+        <div class="ai-duplicate-banner" id="aiDuplicateBanner" style="display: none;">
+          <div class="duplicate-banner-content">
+            <div class="duplicate-banner-left">
+              <div class="warning-icon-box">
+                <span class="material-symbols-outlined" style="font-size: 22px;">warning</span>
+              </div>
+              <div>
+                <div class="duplicate-title-row">
+                  <span class="duplicate-title" id="dup-banner-title">Potential Existing Grievance Detected Nearby</span>
+                  <span class="duplicate-match-pill" id="dup-banner-score">89% Match</span>
+                </div>
+                <p class="duplicate-desc" id="dup-banner-desc">
+                  Our civic triage AI noticed <strong id="dup-banner-case-id">Case #MC-2026-0399</strong> ("Water leakage near Star Mall") reported recently nearby. You can subscribe to live SMS/App updates on that ticket, or proceed if this is a separate occurrence.
+                </p>
+                <div class="duplicate-footer-pills">
+                  <span class="duplicate-badge-squad" id="dup-banner-squad">Dispatcher Assigned: Squad Water-4</span>
+                  <span class="duplicate-eta">Est. Arrival: 42 mins</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="duplicate-banner-actions">
+              <button class="btn-link-case" type="button" onclick="linkDuplicateGrievance()">
+                <span class="material-symbols-outlined" style="font-size: 16px;">link</span>
+                <span>Link to Ticket</span>
+              </button>
+              <button class="btn-proceed-case" type="button" onclick="dismissDuplicateBanner()">
+                <span>Proceed with New Report</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main Submission Workbench Sheet -->
+        <div class="workbench-sheet">
+          
+          <!-- STEP 1 CONTAINER: Issue Classification -->
+          <div id="step-1-content">
+            <!-- Section 1: Grievance Classification -->
+            <div class="form-section">
+              <div class="section-head">
+                <div class="section-title-wrap">
+                  <span class="material-symbols-outlined">assignment</span>
+                  <span class="section-title">1. Grievance Classification</span>
+                </div>
+                <span class="section-hint">Mandatory Fields *</span>
+              </div>
+
+              <!-- Case Title -->
+              <div class="form-group">
+                <label class="form-label" for="grievance-title">
+                  <span>Case Title *</span>
+                  <span class="sub">Max 120 characters</span>
+                </label>
+                <input type="text" class="form-input" id="grievance-title" 
+                       placeholder="Summarize the issue clearly (e.g. Burst water mains, asphalt pothole crater)" 
+                       oninput="triggerDuplicateCheckDebounced()">
+              </div>
+
+              <!-- Category & Urgency Matrix -->
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label" for="grievance-category">
+                    <span>Municipal Category *</span>
+                  </label>
+                  <div class="select-wrap">
+                    <select class="form-select" id="grievance-category">
+                      <option value="">Select Category...</option>
+                      <!-- Populated dynamically from /api/v1/organization/categories -->
+                    </select>
+                    <span class="material-symbols-outlined select-arrow">keyboard_arrow_down</span>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="grievance-severity">
+                    <span>Perceived Severity</span>
+                  </label>
+                  <div class="select-wrap">
+                    <select class="form-select" id="grievance-severity">
+                      <option value="CRITICAL">Critical (Poses public hazard or major utility outage)</option>
+                      <option value="MAJOR" selected>Major (Active nuisance, disruption to transport)</option>
+                      <option value="MODERATE">Moderate (Localized defect, limited disruption)</option>
+                      <option value="MINOR">Minor (Scheduled maintenance, cosmetic upkeep)</option>
+                    </select>
+                    <span class="material-symbols-outlined select-arrow">keyboard_arrow_down</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Detailed Notes -->
+              <div class="form-group">
+                <label class="form-label" for="grievance-notes">
+                  <span>Detailed Occurrence Notes *</span>
+                </label>
+                <textarea class="form-textarea" id="grievance-notes" rows="3" 
+                          placeholder="Provide context regarding volume of water, estimated duration, nearby risks or blocked entrances..."
+                          oninput="triggerDuplicateCheckDebounced()"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP 2 CONTAINER: Location & Evidence -->
+          <div id="step-2-content">
+            <!-- Section 2: Location & Jurisdiction Pin -->
+            <div class="form-section">
+              <div class="section-head">
+                <div class="section-title-wrap">
+                  <span class="material-symbols-outlined">pin_drop</span>
+                  <span class="section-title">2. Location & Jurisdiction Pin</span>
+                </div>
+                <span class="section-hint">Automatic GIS Geocoding</span>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label" for="grievance-ward">
+                    <span>Jurisdictional Ward *</span>
+                  </label>
+                  <div class="select-wrap">
+                    <select class="form-select" id="grievance-ward">
+                      <option value="Ward 07 - Dadar West">Ward 07 - Dadar West (Zone 4)</option>
+                      <option value="Ward 08 - Prabhadevi">Ward 08 - Prabhadevi Central</option>
+                      <option value="Ward 09 - Mahim South">Ward 09 - Mahim South</option>
+                      <option value="Ward 10 - Matunga East">Ward 10 - Matunga East</option>
+                      <option value="Ward 118 - Bangalore South">Ward 118 - Bangalore South</option>
+                    </select>
+                    <span class="material-symbols-outlined select-arrow">keyboard_arrow_down</span>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="grievance-landmark">
+                    <span>Prominent Landmark / Street Address *</span>
+                  </label>
+                  <input type="text" class="form-input" id="grievance-landmark" 
+                         placeholder="e.g. Opposite Star Mall near Shivaji Park gate">
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 3: Visual & Audio Evidence & AI Camera Scanner -->
+            <div class="form-section" style="margin-top: 24px;">
+              <div class="section-head">
+                <div class="section-title-wrap">
+                  <span class="material-symbols-outlined">photo_library</span>
+                  <span class="section-title">3. Visual Evidence & AI Vision Scanner</span>
+                </div>
+                <span class="section-hint" id="attachment-counter-hint">3 of 5 Maximum Attachments</span>
+              </div>
+
+              <!-- Media Dropzone with AI Camera Scanner -->
+              <div class="media-dropzone" id="portal-media-dropzone" onclick="document.getElementById('portal-camera-input').click()">
+                <input type="file" id="portal-camera-input" accept="image/*,video/*" capture="environment" style="display:none;" onchange="handlePortalImageUpload(event)">
+                
+                <!-- Laser Scanning Animation Overlay -->
+                <div class="laser-scanner-overlay" id="portal-laser-overlay">
+                  <div class="laser-beam"></div>
+                  <div class="laser-status-text">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">auto_awesome</span>
+                    <span>Neural AI Vision analyzing damage & auto-filling form...</span>
+                  </div>
+                </div>
+
+                <div class="dropzone-icons-row">
+                  <div class="dropzone-icon-box primary-icon">
+                    <span class="material-symbols-outlined" style="font-size: 24px;">add_a_photo</span>
+                  </div>
+                  <div class="dropzone-icon-box secondary-icon">
+                    <span class="material-symbols-outlined" style="font-size: 24px;">attach_file</span>
+                  </div>
+                </div>
+
+                <h2 class="dropzone-heading">Drop inspection media here, or snap a photo with Camera</h2>
+                <p class="dropzone-sub">AI Vision automatically detects defects, priority, severity, category and writes description with <strong>0 manual typing</strong>.</p>
+
+                <div class="dropzone-pills">
+                  <span class="dropzone-pill">JPG, PNG, MP4</span>
+                  <span class="dropzone-pill">Up to 25MB</span>
+                  <span class="dropzone-pill" style="color: var(--primary); background-color: var(--primary-fixed);">⚡ Zero-Typing AI</span>
+                </div>
+              </div>
+
+              <!-- 4 Quick 1-Click AI Vision Demo Presets -->
+              <div class="ai-quick-presets">
+                <span class="preset-title">📸 Quick AI Camera Demos:</span>
+                <button type="button" class="btn-preset" onclick="triggerPortalVisionPreset('pothole')">
+                  <span>🕳️</span> <span>Pothole Crater</span>
+                </button>
+                <button type="button" class="btn-preset" onclick="triggerPortalVisionPreset('waste')">
+                  <span>🗑️</span> <span>Garbage Overflow</span>
+                </button>
+                <button type="button" class="btn-preset" onclick="triggerPortalVisionPreset('light')">
+                  <span>💡</span> <span>Streetlight Out</span>
+                </button>
+                <button type="button" class="btn-preset" onclick="triggerPortalVisionPreset('water')">
+                  <span>💧</span> <span>Water Pipe Burst</span>
+                </button>
+              </div>
+
+              <!-- Media Gallery Preview Grid -->
+              <div class="media-gallery-grid" id="portal-media-gallery">
+                <!-- Pre-populated Evidence 1 -->
+                <div class="media-item-card" id="media-card-1">
+                  <div class="media-thumb" style="display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #e0f2fe, #bae6fd);">
+                    <span class="material-symbols-outlined" style="color: #0284c7; font-size: 28px;">water_drop</span>
+                  </div>
+                  <div class="media-info">
+                    <span class="media-filename">IMG_2026_0982.jpg</span>
+                    <span class="media-subtext">3.8 MB • Geo-tagged</span>
+                    <span class="media-status-pill">Uploaded 100%</span>
+                  </div>
+                </div>
+
+                <!-- Pre-populated Evidence 2 -->
+                <div class="media-item-card" id="media-card-2">
+                  <div class="media-thumb" style="display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #fef3c7, #fde68a);">
+                    <span class="material-symbols-outlined" style="color: #d97706; font-size: 28px;">photo_camera</span>
+                  </div>
+                  <div class="media-info">
+                    <span class="media-filename">IMG_2026_0983_wide.jpg</span>
+                    <span class="media-subtext">5.1 MB • Geo-tagged</span>
+                    <span class="media-status-pill">Uploaded 100%</span>
+                  </div>
+                </div>
+
+                <!-- Upload Progress Item -->
+                <div class="media-item-card" id="media-card-3">
+                  <div class="media-thumb" style="display: flex; align-items: center; justify-content: center; background-color: var(--surface-container-highest);">
+                    <span class="material-symbols-outlined" style="color: var(--secondary); font-size: 24px;">videocam</span>
+                  </div>
+                  <div class="media-info">
+                    <span class="media-filename">MOV_flow_velocity.mp4</span>
+                    <span class="media-subtext">14.2 MB • Processing</span>
+                    <div class="media-progress-wrap">
+                      <div class="media-progress-bar" style="width: 100%;"></div>
+                    </div>
+                    <span class="media-status-pill">Uploaded 100%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP 3 CONTAINER: Review & Verification -->
+          <div id="step-3-content">
+            <!-- Section 4: Citizen Verification & Communication Preferences -->
+            <div class="form-section">
+              <div class="section-head">
+                <div class="section-title-wrap">
+                  <span class="material-symbols-outlined">notifications_active</span>
+                  <span class="section-title">4. Verification & Communication Channels</span>
+                </div>
+                <span class="section-hint">Auto-synced with Citizen ID</span>
+              </div>
+
+              <div class="form-grid-3">
+                <div class="form-group">
+                  <label class="form-label">Citizen Name</label>
+                  <input type="text" class="form-input" id="citizen-name-display" value="Aarav Sharma" readonly>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Registered Contact</label>
+                  <input type="text" class="form-input" id="citizen-contact-display" value="+91 98201 •••••" readonly>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Update Channel</label>
+                  <div class="select-wrap">
+                    <select class="form-select" id="citizen-update-channel">
+                      <option value="sms_whatsapp">SMS + WhatsApp Alerts</option>
+                      <option value="sms_only">SMS Only</option>
+                      <option value="app">Mobile App In-App Push Only</option>
+                    </select>
+                    <span class="material-symbols-outlined select-arrow">keyboard_arrow_down</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Transparency Feed Checkbox -->
+              <div class="checkbox-card">
+                <input type="checkbox" id="public_transparency" checked>
+                <label class="checkbox-label" for="public_transparency">
+                  Allow anonymized grievance summary on public Ward Transparency Feed. Personal contact details and identifiable citizen metadata are permanently masked.
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Footer -->
+          <div class="workbench-footer">
+            <button type="button" class="btn-secondary-action" onclick="saveIntakeDraft()">
+              <span class="material-symbols-outlined" style="font-size: 18px;">bookmark_border</span>
+              <span>Save Draft</span>
+            </button>
+
+            <div class="footer-actions-right">
+              <button type="button" class="btn-ghost-action" onclick="showTab('dashboard')">
+                <span>Cancel</span>
+              </button>
+              <button type="button" class="btn-primary-submit" id="btn-submit-workbench" onclick="submitGrievanceWorkbench()">
+                <span id="btn-submit-text">Submit Grievance to Municipal Triage</span>
+                <span class="material-symbols-outlined" style="font-size: 18px;">arrow_forward</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SLA Regulatory Compliance Guarantee Notice -->
+        <div class="sla-guarantee-notice">
+          <div class="sla-notice-left">
+            <span class="material-symbols-outlined">policy</span>
+            <span>
+              Citizen Charter Guarantee: Category <strong id="guarantee-cat-name">Water Supply & Pipeline</strong> carries an institutional initial response SLA of <strong>&lt; 120 Minutes</strong>.
+            </span>
+          </div>
+          <div class="sla-notice-right">
+            <span>Ward Control Room Active</span>
+            <span class="pulse-dot-secondary"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           TAB 2: DASHBOARD & ANALYTICS
+           =================================================================== -->
       <div class="tab-pane active" id="tab-dashboard">
         <div class="pane-header">
           <div>
             <h1 class="pane-title" id="dashboard-title">Executive Ward Overview</h1>
-            <p class="pane-description" id="dashboard-desc">Real-time civic intelligence, SLA compliance, and AI operational anomaly alerts.</p>
+            <p class="pane-description" id="dashboard-desc">Real-time civic intelligence, SLA compliance, and AI operational triage queue.</p>
           </div>
-          <div class="pane-actions">
-            <button class="btn btn-secondary btn-sm" onclick="loadDashboardData()">🔄 Refresh</button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-geo-tool" onclick="loadDashboardData()">
+              <span class="material-symbols-outlined" style="font-size: 14px;">refresh</span>
+              <span>Refresh Metrics</span>
+            </button>
           </div>
         </div>
 
-        <!-- KPI Metric Cards Grid -->
+        <!-- KPI Metrics Grid -->
         <div class="metrics-grid">
           <div class="metric-card">
             <div class="metric-header">
-              <span class="metric-title" id="kpi-label-1">TOTAL COMPLAINTS</span>
-              <span class="metric-icon" id="kpi-icon-1">📑</span>
+              <span class="metric-title" id="kpi-label-1">TOTAL GRIEVANCES</span>
+              <span class="material-symbols-outlined metric-icon">assignment</span>
             </div>
             <div class="metric-value" id="kpi-total">5</div>
-            <div class="metric-sub text-success" id="kpi-sub-1">Across all municipal sectors</div>
+            <div class="metric-sub"><span class="metric-trend-up">↑ 12%</span> vs previous 7 days</div>
           </div>
 
           <div class="metric-card">
             <div class="metric-header">
-              <span class="metric-title" id="kpi-label-2">ACTIVE / IN-PROGRESS</span>
-              <span class="metric-icon" id="kpi-icon-2">⚙️</span>
+              <span class="metric-title" id="kpi-label-2">SLA COMPLIANCE</span>
+              <span class="material-symbols-outlined metric-icon" style="color: var(--success);">check_circle</span>
             </div>
-            <div class="metric-value text-warning" id="kpi-active">3</div>
-            <div class="metric-sub" id="kpi-sub-2">Field investigation & repair</div>
+            <div class="metric-value" id="kpi-sla" style="color: var(--success);">94.8%</div>
+            <div class="metric-sub">Average Resolution: <strong>4.2h</strong></div>
           </div>
 
           <div class="metric-card">
             <div class="metric-header">
-              <span class="metric-title" id="kpi-label-3">SLA COMPLIANCE</span>
-              <span class="metric-icon" id="kpi-icon-3">⏱️</span>
+              <span class="metric-title" id="kpi-label-3">ACTIVE SQUADS</span>
+              <span class="material-symbols-outlined metric-icon" style="color: var(--secondary);">local_shipping</span>
             </div>
-            <div class="metric-value text-accent" id="kpi-sla">80.0%</div>
-            <div class="metric-sub text-success" id="kpi-sub-3">Target: >85%</div>
+            <div class="metric-value" id="kpi-active-squads">8 / 10</div>
+            <div class="metric-sub">Zone 4 Rapid Response Units</div>
           </div>
 
           <div class="metric-card">
             <div class="metric-header">
-              <span class="metric-title" id="kpi-label-4">RESOLVED / CONFIRMED</span>
-              <span class="metric-icon" id="kpi-icon-4">✅</span>
+              <span class="metric-title" id="kpi-label-4">CRITICAL / BREACHED</span>
+              <span class="material-symbols-outlined metric-icon" style="color: var(--error);">warning</span>
             </div>
-            <div class="metric-value text-success" id="kpi-resolved">2</div>
-            <div class="metric-sub" id="kpi-sub-4">Citizen verified closure</div>
+            <div class="metric-value" id="kpi-breaches" style="color: var(--error);">1</div>
+            <div class="metric-sub"><span class="metric-trend-alert">High Risk</span> escalated to Team Lead</div>
           </div>
         </div>
 
-        <!-- AI Insights & Heatmap Row -->
-        <div class="two-col-grid" id="dashboard-details-grid">
-          <!-- AI Insights Card -->
-          <div class="glass-panel" id="panel-ai-insights">
-            <div class="panel-header">
-              <div class="panel-title" id="ai-insights-header">🤖 AI Operational Intelligence & Hotspots</div>
-              <span class="badge badge-ai" id="ai-insights-tag">LIVE AI SCAN</span>
-            </div>
-            <div class="insights-list" id="ai-insights-list">
-              <!-- Loaded dynamically -->
-            </div>
+        <!-- Filter & Search Bar -->
+        <div class="filter-bar">
+          <div class="filter-chips">
+            <button class="chip-btn active" onclick="filterCasesByStatus('ALL', this)">All Tickets</button>
+            <button class="chip-btn" onclick="filterCasesByStatus('PENDING', this)">Pending</button>
+            <button class="chip-btn" onclick="filterCasesByStatus('IN_PROGRESS', this)">In Progress</button>
+            <button class="chip-btn" onclick="filterCasesByStatus('RESOLVED', this)">Resolved</button>
+            <button class="chip-btn" onclick="filterCasesByStatus('BREACHED', this)">Breached</button>
           </div>
 
-          <!-- Ward Distribution / Team Table -->
-          <div class="glass-panel" id="panel-ward-metrics">
-            <div class="panel-header">
-              <div class="panel-title" id="panel-right-title">📍 Ward Performance & Risk Heatmap</div>
-            </div>
-            <div class="table-responsive">
-              <table class="data-table">
-                <thead id="right-table-head">
-                  <tr>
-                    <th>Ward</th>
-                    <th>Total</th>
-                    <th>Active</th>
-                    <th>Top Issue</th>
-                    <th>Risk</th>
-                  </tr>
-                </thead>
-                <tbody id="ward-metrics-body">
-                  <!-- Loaded dynamically -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ================================================================= -->
-      <!-- TAB 2: CASES LIST & SEARCH -->
-      <!-- ================================================================= -->
-      <div class="tab-pane" id="tab-cases">
-        <div class="pane-header">
-          <div>
-            <h1 class="pane-title" id="cases-pane-title">Civic Complaints & Cases</h1>
-            <p class="pane-description">Multi-criteria filtering, lifecycle tracking, and AI triage details.</p>
-          </div>
-          <div class="search-bar-container">
-            <input type="text" id="case-search-input" placeholder="Search by Case Number, Title, Ward, Landmark..." oninput="debounceSearch()">
-            <select id="case-filter-status" onchange="loadCases()">
-              <option value="">All Statuses</option>
-              <option value="reported">Reported</option>
-              <option value="assigned">Assigned</option>
-              <option value="waiting_info">Waiting for Info</option>
-              <option value="investigated">Investigated</option>
-              <option value="escalated">Escalated</option>
-              <option value="resolution_proposed">Resolution Proposed</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="closed">Closed</option>
-            </select>
+          <div class="search-input-wrap">
+            <span class="material-symbols-outlined search-icon">search</span>
+            <input type="text" class="search-input" id="search-cases-input" placeholder="Search by Case ID, title, keyword..." oninput="handleCaseSearchInput(this.value)">
           </div>
         </div>
 
         <!-- Cases Table -->
-        <div class="glass-panel">
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Case #</th>
-                  <th>Title & Description</th>
-                  <th>Ward & Landmark</th>
-                  <th>Priority</th>
-                  <th>Status</th>
-                  <th>SLA Target</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="cases-table-body">
-                <!-- Loaded dynamically -->
-              </tbody>
-            </table>
+        <div class="table-card">
+          <table class="civic-table">
+            <thead>
+              <tr>
+                <th>Case ID</th>
+                <th>Issue Summary</th>
+                <th>Category</th>
+                <th>Ward / Location</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>SLA Clock</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="cases-table-body">
+              <!-- Dynamically populated via loadCasesTable() -->
+              <tr>
+                <td colspan="8" style="text-align: center; padding: 28px; color: var(--text-secondary);">
+                  <span class="material-symbols-outlined" style="font-size: 24px; animation: spin 1s infinite linear; color: var(--primary);">sync</span>
+                  <div style="margin-top: 6px; font-size: 13px; font-weight: 500;">Loading grievances...</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           TAB 3: CASE MANAGEMENT VIEW
+           =================================================================== -->
+      <div class="tab-pane" id="tab-cases">
+        <div class="pane-header">
+          <div>
+            <h1 class="pane-title">Case Management Directory</h1>
+            <p class="pane-description">Comprehensive ledger of all filed civic grievances, department allocations, and resolution lifecycles.</p>
+          </div>
+          <button class="btn-primary-submit" onclick="showTab('intake')">
+            <span class="material-symbols-outlined" style="font-size: 16px;">add</span>
+            <span>+ Report Grievance</span>
+          </button>
+        </div>
+
+        <div class="filter-bar">
+          <div class="filter-chips">
+            <button class="chip-btn active" onclick="filterCasesByStatus('ALL', this)">All</button>
+            <button class="chip-btn" onclick="filterCasesByStatus('PENDING', this)">Pending Triage</button>
+            <button class="chip-btn" onclick="filterCasesByStatus('IN_PROGRESS', this)">Active Work Orders</button>
+            <button class="chip-btn" onclick="filterCasesByStatus('RESOLVED', this)">Closed / Verified</button>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <table class="civic-table">
+            <thead>
+              <tr>
+                <th>Case ID</th>
+                <th>Title / Summary</th>
+                <th>Category</th>
+                <th>Ward / Location</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>SLA Clock</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="cases-mgmt-table-body">
+              <!-- Populated via loadCasesTable() -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           TAB 4: SQUAD DISPATCH VIEW
+           =================================================================== -->
+      <div class="tab-pane" id="tab-dispatch">
+        <div class="pane-header">
+          <div>
+            <h1 class="pane-title">Field Squad Dispatch Command</h1>
+            <p class="pane-description">Live squad capacity allocation, workload distribution, and rapid vehicle telemetry.</p>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-header">
+              <span class="metric-title">SQUAD WATER-4 (PLUMBING & MAINS)</span>
+              <span class="material-symbols-outlined metric-icon" style="color: var(--secondary);">water_drop</span>
+            </div>
+            <div style="font-size: 15px; font-weight: 700;">Lead: Rohan Deshmukh</div>
+            <div class="metric-sub">Active Work Orders: <strong>3 Assigned</strong> • Capacity: 75%</div>
+            <div class="media-progress-wrap" style="margin-top: 8px;">
+              <div class="media-progress-bar" style="width: 75%; background-color: var(--secondary);"></div>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-header">
+              <span class="metric-title">SQUAD ROADS-1 (ASPHALT & CRATERS)</span>
+              <span class="material-symbols-outlined metric-icon" style="color: var(--primary);">alt_route</span>
+            </div>
+            <div style="font-size: 15px; font-weight: 700;">Lead: Sunil Shinde</div>
+            <div class="metric-sub">Active Work Orders: <strong>2 Assigned</strong> • Capacity: 50%</div>
+            <div class="media-progress-wrap" style="margin-top: 8px;">
+              <div class="media-progress-bar" style="width: 50%; background-color: var(--primary);"></div>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-header">
+              <span class="metric-title">SQUAD SANITATION-3 (SOLID WASTE)</span>
+              <span class="material-symbols-outlined metric-icon" style="color: #166534;">delete</span>
+            </div>
+            <div style="font-size: 15px; font-weight: 700;">Lead: Amit Varma</div>
+            <div class="metric-sub">Active Work Orders: <strong>1 Assigned</strong> • Capacity: 25%</div>
+            <div class="media-progress-wrap" style="margin-top: 8px;">
+              <div class="media-progress-bar" style="width: 25%; background-color: #166534;"></div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- ================================================================= -->
-      <!-- TAB 3: ESCALATIONS & AUTOMATION -->
-      <!-- ================================================================= -->
+      <!-- ===================================================================
+           TAB 5: SLA & ESCALATIONS VIEW
+           =================================================================== -->
       <div class="tab-pane" id="tab-escalations">
         <div class="pane-header">
           <div>
-            <h1 class="pane-title">SLA Monitoring & Escalations</h1>
-            <p class="pane-description">Automated breach detection, critical risk threshold alerts, and supervisor intervention.</p>
+            <h1 class="pane-title">SLA Compliance & Risk Radar</h1>
+            <p class="pane-description">High-risk cases approaching regulatory breach thresholds with automatic supervisor escalation.</p>
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="loadEscalations()">🔄 Refresh</button>
+          <button class="btn-primary-submit" onclick="triggerSlaSweep()">
+            <span class="material-symbols-outlined" style="font-size: 16px;">bolt</span>
+            <span>Trigger Automatic SLA Sweep</span>
+          </button>
         </div>
 
-        <div class="glass-panel">
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Escalation ID</th>
-                  <th>Case #</th>
-                  <th>Trigger Reason</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th>Created At</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="escalations-table-body">
-                <!-- Loaded dynamically -->
-              </tbody>
-            </table>
-          </div>
+        <div class="table-card">
+          <table class="civic-table">
+            <thead>
+              <tr>
+                <th>Case ID</th>
+                <th>Grievance Summary</th>
+                <th>SLA Limit</th>
+                <th>Elapsed Time</th>
+                <th>Risk Score</th>
+                <th>Escalation Tier</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="sla-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <!-- ================================================================= -->
-      <!-- TAB 4: AUDIT HISTORY -->
-      <!-- ================================================================= -->
+      <!-- ===================================================================
+           TAB 6: IMMUTABLE AUDIT TRAIL
+           =================================================================== -->
       <div class="tab-pane" id="tab-audit">
         <div class="pane-header">
           <div>
-            <h1 class="pane-title">Immutable Audit Trail</h1>
-            <p class="pane-description">Cryptographic-grade event logging of all status changes, assignments, and AI actions.</p>
+            <h1 class="pane-title">Immutable Audit Trail & Cryptographic Ledger</h1>
+            <p class="pane-description">Tamper-evident operational event history recorded with SHA-256 state hashes.</p>
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="loadAuditLogs()">🔄 Refresh</button>
         </div>
 
-        <div class="glass-panel">
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Timestamp</th>
-                  <th>Actor</th>
-                  <th>Action</th>
-                  <th>Resource</th>
-                  <th>Event Details</th>
-                  <th>AI Action</th>
-                </tr>
-              </thead>
-              <tbody id="audit-table-body">
-                <!-- Loaded dynamically -->
-              </tbody>
-            </table>
+        <div class="table-card" style="padding: 20px;">
+          <div class="audit-list" id="global-audit-list">
+            <div class="audit-item">
+              <span class="material-symbols-outlined audit-icon">verified</span>
+              <div class="audit-content">
+                <span class="audit-event-title">Initial Master Ledger Genesis Block Established for Zone 4</span>
+                <span class="audit-time">Actor: System Scheduler • Hash: 8f9a2b7c4e1d...</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- ================================================================= -->
-      <!-- TAB 5: NOTIFICATIONS -->
-      <!-- ================================================================= -->
+      <!-- ===================================================================
+           TAB 7: NOTIFICATIONS
+           =================================================================== -->
       <div class="tab-pane" id="tab-notifications">
         <div class="pane-header">
           <div>
-            <h1 class="pane-title">Notifications & Alerts Center</h1>
-            <p class="pane-description">Real-time lifecycle events, citizen messages, and SLA escalation alerts.</p>
+            <h1 class="pane-title">Operational Notifications</h1>
+            <p class="pane-description">Live system alerts, assignment dispatches, and SLA milestone notices.</p>
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="markAllNotificationsRead()">Mark All as Read</button>
         </div>
 
-        <div class="glass-panel">
-          <div class="notifications-list" id="notifications-list">
-            <!-- Loaded dynamically -->
-          </div>
+        <div class="table-card" style="padding: 20px;" id="notifications-container">
+          <p style="color: var(--on-surface-variant); font-size: 13px;">No unread alerts at this time.</p>
         </div>
       </div>
 
-    </section>
+    </div>
   </main>
 
-  <!-- =================================================================== -->
-  <!-- MODAL: REPORT NEW COMPLAINT -->
-  <!-- =================================================================== -->
-  <div class="modal-backdrop" id="modal-new-case">
+  <!-- =======================================================================
+       4. CASE DETAIL MODAL DIALOG
+       ======================================================================= -->
+  <div class="modal-backdrop" id="modal-case-detail" onclick="handleModalBackdropClick(event, 'modal-case-detail')">
     <div class="modal-box">
       <div class="modal-header">
-        <h2 class="modal-title">🏛️ Report Civic Grievance</h2>
-        <button class="modal-close" onclick="closeModal('modal-new-case')">✕</button>
-      </div>
-      <form id="new-case-form" onsubmit="handleCreateCase(event)">
-        <div class="form-group">
-          <label>Complaint Title *</label>
-          <input type="text" id="case-in-title" required placeholder="e.g. Deep pothole causing traffic jam on MG Road">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span class="case-id-pill" id="modal-detail-case-id">MC-2026-0001</span>
+          <span class="modal-title" id="modal-detail-title">Case Details</span>
         </div>
-        <div class="form-group">
-          <label>Detailed Description *</label>
-          <textarea id="case-in-description" rows="3" required placeholder="Describe the civic hazard, severity, and exact location specifics..."></textarea>
-        </div>
-        
-        <div class="form-row">
-          <div class="form-group">
-            <label>Category (Optional - AI will auto-triage if blank)</label>
-            <select id="case-in-category">
-              <option value="">🤖 Auto-Detect by AI Engine</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Ward *</label>
-            <select id="case-in-ward" required>
-              <option value="Ward 12 - North">Ward 12 - North</option>
-              <option value="Ward 04 - East">Ward 04 - East</option>
-              <option value="Ward 08 - South">Ward 08 - South</option>
-              <option value="Ward 01 - Municipal HQ">Ward 01 - Municipal HQ</option>
-              <option value="Ward 03 - West">Ward 03 - West</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label>Landmark / Specific Location</label>
-            <input type="text" id="case-in-landmark" placeholder="e.g. Near Model High School Gate">
-          </div>
-          <div class="form-group">
-            <label>Priority</label>
-            <select id="case-in-priority">
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
-              <option value="low">Low</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label>Severity</label>
-            <select id="case-in-severity">
-              <option value="moderate">Moderate</option>
-              <option value="major">Major</option>
-              <option value="critical">Critical</option>
-              <option value="minor">Minor</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-new-case')">Cancel</button>
-          <button type="submit" class="btn btn-primary">Submit Complaint</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- =================================================================== -->
-  <!-- MODAL: CASE DETAIL & UNIFIED TIMELINE -->
-  <!-- =================================================================== -->
-  <div class="modal-backdrop" id="modal-case-detail">
-    <div class="modal-box modal-lg">
-      <div class="modal-header">
-        <div>
-          <div class="case-detail-num" id="detail-case-number">MC-2026-1001</div>
-          <h2 class="modal-title" id="detail-case-title">Case Details</h2>
-        </div>
-        <button class="modal-close" onclick="closeModal('modal-case-detail')">✕</button>
+        <button class="modal-close-btn" onclick="closeModal('modal-case-detail')">
+          <span class="material-symbols-outlined">close</span>
+        </button>
       </div>
 
       <div class="modal-body">
-        <div class="case-detail-grid">
-          <!-- Left Column: Summary & Actions -->
-          <div class="case-info-col">
-            <div class="info-block">
-              <div class="info-label">STATUS & PRIORITY</div>
-              <div style="display: flex; gap: 8px; margin-top: 4px;">
-                <span id="detail-status-pill" class="badge">ASSIGNED</span>
-                <span id="detail-priority-pill" class="badge badge-medium">MEDIUM</span>
-              </div>
-            </div>
-            <div class="info-block">
-              <div class="info-label">CATEGORY & WARD</div>
-              <div id="detail-category-text" style="font-weight: 600; color: #F8FAFC;">Roads & Bridges - Pothole Repair</div>
-              <div id="detail-location-text" class="info-value" style="font-size: 12px; color: #94A3B8;">Ward 12 - North</div>
-            </div>
-            <div class="info-block">
-              <div class="info-label">DESCRIPTION</div>
-              <div id="detail-desc-text" class="info-value" style="font-size: 13px; line-height: 1.5;">...</div>
-            </div>
-
-            <!-- AI Copilot Insights Box -->
-            <div class="ai-box" id="detail-ai-box">
-              <div class="ai-box-header">
-                <span>🤖 AI Triage & Copilot Analysis</span>
-                <span class="badge badge-ai" id="detail-ai-confidence">88% CONFIDENCE</span>
-              </div>
-              <div class="ai-box-body" id="detail-ai-body" style="font-size: 12px; color: #CBD5E1; margin: 6px 0;">
-                <div><strong>Suggested Category:</strong> <span id="detail-ai-cat">Pothole Repair</span></div>
-                <div><strong>Recommended Action:</strong> <span id="detail-ai-action">Dispatch Road Squad Alpha</span></div>
-              </div>
-              <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
-                <button class="btn btn-sm btn-outline" onclick="runAiTriageForCurrentCase()">⚡ Re-run AI</button>
-                <button class="btn btn-sm btn-outline" id="btn-apply-ai" onclick="applyAiSuggestionsForCurrentCase()">✨ Apply AI Suggestions</button>
-                <button class="btn btn-sm btn-outline" onclick="viewCaseSummaryForCurrentCase()">📄 AI Summary</button>
-              </div>
-            </div>
-
-            <!-- Role-Specific Action Buttons -->
-            <div class="actions-panel" id="detail-actions-panel" style="margin-top: 14px;">
-              <!-- Dynamically rendered based on active role -->
-            </div>
+        <!-- Live Status Stepper -->
+        <div class="timeline-stepper">
+          <div class="timeline-step completed" id="step-status-submitted">
+            <div class="timeline-dot"><span class="material-symbols-outlined" style="font-size: 14px;">check</span></div>
+            <span class="timeline-step-label">Submitted</span>
           </div>
-
-          <!-- Right Column: Unified Timeline & Activity Stream -->
-          <div class="case-timeline-col">
-            <h3 style="margin-top: 0; font-size: 14px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">
-              Unified Activity & History Timeline
-            </h3>
-            <div class="timeline-stream" id="detail-timeline-stream">
-              <!-- Loaded dynamically -->
-            </div>
-
-            <!-- Message Form & AI Draft Assist -->
-            <form class="chat-form" onsubmit="handleSendMessage(event)" style="display: flex; flex-direction: column; gap: 6px;">
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <select id="chat-type-select" style="background: #1E293B; color: #FFF; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 4px 8px; font-size: 12px;">
-                  <option value="message">💬 Citizen Message</option>
-                  <option value="internal_note">🔒 Private Internal Note</option>
-                </select>
-                <button type="button" class="btn btn-outline btn-sm" onclick="triggerAiDraftCommunication()" style="font-size: 11px; padding: 4px 8px;">
-                  🤖 AI Draft Reply
-                </button>
-              </div>
-              <div style="display: flex; gap: 6px;">
-                <input type="text" id="chat-input" placeholder="Type a message or response..." required style="flex: 1;">
-                <button type="submit" class="btn btn-primary btn-sm">Send</button>
-              </div>
-            </form>
+          <div class="timeline-step completed" id="step-status-verified">
+            <div class="timeline-dot"><span class="material-symbols-outlined" style="font-size: 14px;">check</span></div>
+            <span class="timeline-step-label">Verified</span>
+          </div>
+          <div class="timeline-step active" id="step-status-dispatched">
+            <div class="timeline-dot">3</div>
+            <span class="timeline-step-label">Dispatched</span>
+          </div>
+          <div class="timeline-step" id="step-status-in-progress">
+            <div class="timeline-dot">4</div>
+            <span class="timeline-step-label">In Progress</span>
+          </div>
+          <div class="timeline-step" id="step-status-resolved">
+            <div class="timeline-dot">5</div>
+            <span class="timeline-step-label">Resolved</span>
           </div>
         </div>
+
+        <!-- Description & Metadata -->
+        <div class="form-section">
+          <div class="section-title">Occurrence Details</div>
+          <p id="modal-detail-description" style="font-size: 13.5px; color: var(--on-surface); line-height: 1.5;"></p>
+        </div>
+
+        <!-- AI Vision Triage Card -->
+        <div class="form-section" id="modal-detail-ai-card" style="background-color: #f8fafc; padding: 16px; border-radius: var(--radius-lg); border: 1px solid #e2e8f0;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #6366f1;">
+              <span class="material-symbols-outlined" style="font-size: 18px;">psychology</span>
+              <span>AI Vision Damage Classification</span>
+            </div>
+            <span class="telemetry-pill" id="modal-detail-confidence" style="background-color: #ede9fe; color: #6366f1; border-color: #ddd6fe;">96% Confidence</span>
+          </div>
+          <p id="modal-detail-ai-tags" style="font-size: 12.5px; color: var(--text-secondary);"></p>
+        </div>
+
+        <!-- AI Case Summary & Marathi Translation Copilot -->
+        <div class="form-section" style="background: linear-gradient(135deg, #ffffff, #f8fafc); padding: 16px; border-radius: var(--radius-lg); border: 1px solid #e2e8f0; border-left: 4px solid #6366f1;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--text-primary);">
+              <span class="material-symbols-outlined" style="font-size: 18px; color: #6366f1;">auto_awesome</span>
+              <span>AI Case Summary & Marathi Translation</span>
+            </div>
+            <button type="button" class="btn-geo-tool" style="font-size: 11px; padding: 3px 8px;" onclick="generateModalAiSummary()">
+              <span class="material-symbols-outlined" style="font-size: 14px;">refresh</span>
+              <span>Regenerate</span>
+            </button>
+          </div>
+          <div id="modal-ai-summary-content" style="font-size: 12.5px; color: #334155; line-height: 1.5;">
+            <div>• <strong>AI Diagnosis:</strong> Pipeline pressure fissure affecting road integrity.</div>
+            <div>• <strong>Assigned Squad:</strong> Squad Water-4 (Lead: Sanjay Operator) stationed in Zone 4.</div>
+            <div class="bilingual-box" style="margin-top: 8px;">
+              <span class="bilingual-lang-tag">🇮🇳 मराठी भाषांतर (Field Marathi Summary):</span>
+              <div id="modal-ai-marathi-text" style="color: #1e293b; font-weight: 500;">
+                "मुख्य पिण्याच्या पाण्याची पाईपलाईन फुटल्याची तक्रार प्राप्त झाली आहे. पथक 'Water-4' घटनास्थळी व्हॉल्व्ह बंद करण्याचे काम करत आहे."
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chronological Timeline Audit Events -->
+        <div class="form-section">
+          <div class="section-title">Cryptographic Audit Timeline</div>
+          <div class="audit-list" id="modal-detail-timeline-list">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Action / Status Update Controls (for Field Operators & Managers) -->
+        <div class="form-section" id="modal-detail-actions-section" style="border-top: 1px solid var(--surface-container); padding-top: 16px;">
+          <div class="section-title">Update Case Status & Action</div>
+          <div class="form-grid-2" style="margin-top: 8px;">
+            <div class="select-wrap">
+              <select class="form-select" id="modal-update-status-select">
+                <option value="IN_PROGRESS">Set Status: In Progress</option>
+                <option value="RESOLVED">Set Status: Resolved</option>
+                <option value="REJECTED">Set Status: Rejected</option>
+              </select>
+              <span class="material-symbols-outlined select-arrow">keyboard_arrow_down</span>
+            </div>
+            <button class="btn-primary-submit" onclick="submitCaseStatusUpdate()">Apply Status Update</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary-action" onclick="closeModal('modal-case-detail')">Close</button>
       </div>
     </div>
   </div>
 
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Portal Logic Script -->
   <script src="app.js"></script>
 </body>
 </html>

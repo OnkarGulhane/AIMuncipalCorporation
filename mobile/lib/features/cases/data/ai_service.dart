@@ -71,4 +71,29 @@ class AIService {
       fromJson: (json) => AICaseSummaryModel.fromJson(json as Map<String, dynamic>),
     );
   }
+
+  Future<ApiResponse<AIVisionAnalyzeModel>> analyzeVision({
+    String? imageBase64,
+    String? filename,
+    String? landmarkHint,
+    String? voiceNote,
+    double? latitude,
+    double? longitude,
+  }) async {
+    final token = AuthService.currentToken;
+    return _apiClient.post<AIVisionAnalyzeModel>(
+      '/api/v1/cases/ai/vision-triage',
+      token: token,
+      body: {
+        'image_base64': imageBase64,
+        'filename': filename,
+        'landmark_hint': landmarkHint,
+        'voice_note': voiceNote,
+        'gps_latitude': latitude,
+        'gps_longitude': longitude,
+      },
+      fromJson: (json) => AIVisionAnalyzeModel.fromJson(json as Map<String, dynamic>),
+    );
+  }
 }
+

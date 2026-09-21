@@ -445,14 +445,14 @@ class CaseService:
 
         if assigned_to_id is not None:
             case_obj.assigned_to_id = assigned_to_id
-            # Auto advance status to ASSIGNED if currently reported or understood
-            if case_obj.status in [CaseStatus.REPORTED.value, CaseStatus.UNDERSTOOD.value]:
-                case_obj.status = CaseStatus.ASSIGNED.value
-
         if team_id is not None:
             case_obj.team_id = team_id
         if department_id is not None:
             case_obj.department_id = department_id
+
+        # Auto advance status to ASSIGNED if currently reported or understood
+        if (assigned_to_id is not None or team_id is not None) and case_obj.status in [CaseStatus.REPORTED.value, CaseStatus.UNDERSTOOD.value]:
+            case_obj.status = CaseStatus.ASSIGNED.value
 
         db.add(case_obj)
         db.commit()
@@ -727,17 +727,19 @@ class CaseService:
         # 6. Escalations
         escalations = db.query(CaseEscalation).filter(CaseEscalation.case_id == case_id).all()
         for esc in escalations:
+            trigger_val = getattr(esc, "trigger_type", getattr(esc, "trigger", "manual")) or "manual"
+            esc_actor = getattr(esc, "escalated_to", None) or getattr(esc, "assigned_to", None)
             timeline_items.append(
                 UnifiedTimelineItem(
                     id=f"esc_{esc.id}",
                     event_type="escalation",
                     title=f"SLA Escalation ({esc.status.upper()})",
-                    description=f"Trigger: {esc.trigger.replace('_', ' ').title()}. Reason: {esc.reason}",
-                    actor_id=esc.assigned_to_id,
-                    actor_name=esc.assigned_to.full_name if esc.assigned_to else "Escalation Lead",
-                    actor_role=esc.assigned_to.role if esc.assigned_to else "team_lead",
+                    description=f"Trigger: {trigger_val.replace('_', ' ').title()}. Reason: {esc.reason}",
+                    actor_id=esc.escalated_to_id if hasattr(esc, "escalated_to_id") else getattr(esc, "assigned_to_id", None),
+                    actor_name=esc_actor.full_name if esc_actor else "Escalation Lead",
+                    actor_role=esc_actor.role if esc_actor else "team_lead",
                     is_internal=False,
-                    metadata={"escalation_status": esc.status, "trigger": esc.trigger},
+                    metadata={"escalation_status": esc.status, "trigger": trigger_val},
                     timestamp=esc.created_at,
                 )
             )

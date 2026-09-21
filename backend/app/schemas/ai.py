@@ -84,3 +84,29 @@ class AICaseSummaryResponse(BaseModel):
     current_stage: str
     unresolved_blockers: List[str]
     last_activity: Optional[str] = None
+
+
+class AIVisionAnalyzeRequest(BaseModel):
+    image_base64: Optional[str] = None
+    filename: Optional[str] = None
+    gps_latitude: Optional[float] = None
+    gps_longitude: Optional[float] = None
+    landmark_hint: Optional[str] = None
+    voice_note: Optional[str] = None
+
+
+class AIVisionAnalyzeResponse(BaseModel):
+    detected_issue: str
+    category_id: Optional[int] = None
+    category_code: Optional[str] = None
+    category_name: Optional[str] = None
+    suggested_title: str
+    suggested_description: str
+    suggested_priority: str
+    suggested_severity: str
+    confidence_score: float
+    visual_tags: List[str]
+    recommended_action: str
+    landmark_inferred: Optional[str] = None
+    image_summary: str
+

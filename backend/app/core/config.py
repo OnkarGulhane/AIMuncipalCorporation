@@ -32,9 +32,10 @@ class Settings(BaseSettings):
         return ["*"]
 
     # AI Service Settings
-    AI_PROVIDER: str = "external"
+    AI_PROVIDER: str = "gemini"
     AI_API_KEY: str = ""
-    AI_API_BASE_URL: str = ""
+    GEMINI_API_KEY: str = ""
+    AI_API_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta"
 
     # Storage Settings
     UPLOAD_DIR: str = "uploads"

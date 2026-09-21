@@ -125,8 +125,8 @@ def seed_demo_database(db: Optional[Session] = None):
         # ---------------------------------------------------------------------
         # 4. Seed 5 Role-Based Demo Users
         # ---------------------------------------------------------------------
-        print("[4/6] Seeding 5 Role Demo Users (Password: Password123)...")
-        default_pwd_hash = get_password_hash("Password123")
+        print("[4/6] Seeding 5 Role Demo Users (Password: Demo@1234 / Password123)...")
+        default_pwd_hash = get_password_hash("Demo@1234")
 
         user_configs = [
             {
@@ -174,15 +174,65 @@ def seed_demo_database(db: Optional[Session] = None):
                 "department_id": None,
                 "team_id": None,
             },
+            # Also seed @demo.com for quick 1-click logins
+            {
+                "email": "citizen@demo.com",
+                "full_name": "Aarav Sharma",
+                "role": UserRole.REQUESTER.value,
+                "ward": "Ward 12 - North",
+                "phone_number": "+91 98765 43210",
+                "department_id": None,
+                "team_id": None,
+            },
+            {
+                "email": "operator@demo.com",
+                "full_name": "Rohan Deshmukh",
+                "role": UserRole.OPERATOR.value,
+                "ward": "Ward 12 - North",
+                "phone_number": "+91 98765 43211",
+                "department_id": departments["ROADS"].id,
+                "team_id": teams["Road Squad Alpha"].id,
+            },
+            {
+                "email": "teamlead@demo.com",
+                "full_name": "Priya Patil",
+                "role": UserRole.TEAM_LEAD.value,
+                "ward": "Ward 12 - North",
+                "phone_number": "+91 98765 43212",
+                "department_id": departments["ROADS"].id,
+                "team_id": teams["Road Squad Alpha"].id,
+            },
+            {
+                "email": "manager@demo.com",
+                "full_name": "Vikram Kulkarni",
+                "role": UserRole.MANAGER.value,
+                "ward": "Ward 12 - North",
+                "phone_number": "+91 98765 43213",
+                "department_id": departments["ROADS"].id,
+                "team_id": None,
+            },
+            {
+                "email": "admin@demo.com",
+                "full_name": "Sneha Joshi",
+                "role": UserRole.ADMINISTRATOR.value,
+                "ward": "Ward 01 - Municipal HQ",
+                "phone_number": "+91 98765 43214",
+                "department_id": None,
+                "team_id": None,
+            },
         ]
 
         users = {}
+        pwd_hash_gov = get_password_hash("Password123")
+        pwd_hash_com = get_password_hash("Demo@1234")
+
         for u in user_configs:
+            user_pwd_hash = pwd_hash_com if u["email"].endswith("@demo.com") else pwd_hash_gov
             user = db.query(User).filter(User.email == u["email"]).first()
             if not user:
                 user = User(
                     email=u["email"],
-                    hashed_password=default_pwd_hash,
+                    hashed_password=user_pwd_hash,
                     full_name=u["full_name"],
                     role=u["role"],
                     ward=u["ward"],
@@ -195,7 +245,7 @@ def seed_demo_database(db: Optional[Session] = None):
                 db.commit()
                 db.refresh(user)
             else:
-                user.hashed_password = default_pwd_hash
+                user.hashed_password = user_pwd_hash
                 user.role = u["role"]
                 user.ward = u["ward"]
                 user.department_id = u["department_id"]

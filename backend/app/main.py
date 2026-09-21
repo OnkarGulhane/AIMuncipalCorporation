@@ -64,7 +64,11 @@ app = FastAPI(
 # 1. Security Headers Middleware
 app.add_middleware(SecurityHeadersMiddleware)
 
-# 2. Configure CORS
+# 2. GZip Compression Middleware (High Performance)
+from starlette.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
+# 3. Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else [settings.CORS_ORIGINS],

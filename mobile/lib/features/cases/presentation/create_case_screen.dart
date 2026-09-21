@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../data/case_models.dart';
 import '../data/case_service.dart';
+import '../data/ai_service.dart';
+import '../data/ai_models.dart';
 import 'case_detail_screen.dart';
 
 class CreateCaseScreen extends StatefulWidget {
@@ -20,10 +22,13 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
   final _wardController = TextEditingController(text: 'Ward 12 - Shivaji Nagar');
   final _landmarkController = TextEditingController();
   final CaseService _caseService = CaseService();
+  final AIService _aiService = AIService();
 
   int? _selectedCategoryId;
   String _selectedPriority = 'medium';
   bool _isLoading = false;
+  bool _isAiScanning = false;
+  AIVisionAnalyzeModel? _visionResult;
   String? _errorMessage;
 
   final List<Map<String, dynamic>> _categories = [
@@ -35,17 +40,60 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
     {'id': 6, 'name': 'Fallen Tree / Road Obstruction', 'dept': 'Roads & Infrastructure'},
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    if (widget.initialCategory != null) {
-      final match = _categories.firstWhere(
-        (c) => c['name'].toString().toLowerCase().contains(widget.initialCategory!.toLowerCase()),
-        orElse: () => _categories.first,
+  Future<void> _triggerAiVisionScan({String sampleType = 'pothole'}) async {
+    setState(() {
+      _isAiScanning = true;
+      _errorMessage = null;
+    });
+
+    final filename = sampleType == 'garbage'
+        ? 'garbage_overflow_dump_container.png'
+        : (sampleType == 'water' ? 'water_pipe_leak_rupture.jpg' : 'severe_road_asphalt_pothole.jpg');
+    final landmark = sampleType == 'garbage'
+        ? 'Near Shivaji Park Sector 4'
+        : (sampleType == 'water' ? 'Near Water Reservoir Tank' : 'Opposite City Bank ATM, MG Road');
+
+    final res = await _aiService.analyzeVision(
+      filename: filename,
+      landmarkHint: landmark,
+      voiceNote: 'Automated camera scan for municipal civic damage triage',
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isAiScanning = false;
+    });
+
+    if (res.isSuccess && res.data != null) {
+      final v = res.data!;
+      setState(() {
+        _visionResult = v;
+        _titleController.text = v.suggestedTitle;
+        _descriptionController.text = v.suggestedDescription;
+        if (v.categoryId != null) {
+          _selectedCategoryId = v.categoryId;
+        }
+        _selectedPriority = v.suggestedPriority.toLowerCase();
+        if (v.landmarkInferred != null && _landmarkController.text.isEmpty) {
+          _landmarkController.text = v.landmarkInferred!;
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✨ AI Vision: Auto-filled complaint (${v.categoryName})'),
+          backgroundColor: AppColors.statusSuccess,
+          duration: const Duration(seconds: 3),
+        ),
       );
-      _selectedCategoryId = match['id'] as int;
     } else {
-      _selectedCategoryId = _categories.first['id'] as int;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res.errorMessage ?? 'Failed to complete vision scan'),
+          backgroundColor: AppColors.statusError,
+        ),
+      );
     }
   }
 
@@ -124,6 +172,132 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
                   ),
                   const SizedBox(height: 16),
                 ],
+
+                // =============================================================
+                // AI CAMERA / PHOTO ZERO-TYPING BANNER
+                // =============================================================
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 1.5),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.photo_camera_back, color: AppColors.primary, size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '📸 AI Camera Auto-Fill',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                                Text(
+                                  'Zero-typing: Snap photo & AI detects damage category, priority & details',
+                                  style: TextStyle(fontSize: 11, color: Colors.black54),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (_isAiScanning) ...[
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                                SizedBox(width: 10),
+                                Text(
+                                  '⚡ Scanning photo & detecting civic damage...',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ] else ...[
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () => _triggerAiVisionScan(sampleType: 'pothole'),
+                              icon: const Icon(Icons.add_a_photo, size: 16),
+                              label: const Text('📸 Snap / Scan Photo', style: TextStyle(fontSize: 12)),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: () => _triggerAiVisionScan(sampleType: 'garbage'),
+                              icon: const Icon(Icons.delete_outline, size: 16),
+                              label: const Text('Demo Waste', style: TextStyle(fontSize: 12)),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: () => _triggerAiVisionScan(sampleType: 'water'),
+                              icon: const Icon(Icons.water_drop_outlined, size: 16),
+                              label: const Text('Demo Pipe Leak', style: TextStyle(fontSize: 12)),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (_visionResult != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.statusSuccess.withOpacity(0.4)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle, color: AppColors.statusSuccess, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '✨ AI Vision: ${_visionResult!.categoryName} (${(_visionResult!.confidenceScore * 100).toInt()}% confidence) — Form Auto-Filled!',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.statusSuccess),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
 
                 // Category Selection
                 const Text('Complaint Category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),

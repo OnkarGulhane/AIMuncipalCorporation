@@ -85,3 +85,12 @@ logs/
 uploads/
 backend/uploads/
 
+# Local personal documentation & memory
+docs/repomemory.md
+repomemory.md
+backend/static_portal/test_screenshots/
+stitch_extracted/
+stitch_extracted_new/
+stitch_specs/
+requirements.zip
+

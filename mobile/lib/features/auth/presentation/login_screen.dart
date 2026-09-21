@@ -13,8 +13,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'citizen@demo.com');
-  final _passwordController = TextEditingController(text: 'Demo@1234');
+  final _emailController = TextEditingController(text: 'aarav.sharma@example.com');
+  final _passwordController = TextEditingController(text: 'CitizenPass123!');
   final AuthService _authService = AuthService();
 
   bool _isLoading = false;
@@ -22,11 +22,9 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _errorMessage;
 
   final List<Map<String, String>> _demoAccounts = [
-    {'role': 'Citizen', 'email': 'citizen@demo.com', 'pass': 'Demo@1234'},
-    {'role': 'Operator', 'email': 'operator@demo.com', 'pass': 'Demo@1234'},
-    {'role': 'Team Lead', 'email': 'teamlead@demo.com', 'pass': 'Demo@1234'},
-    {'role': 'Manager', 'email': 'manager@demo.com', 'pass': 'Demo@1234'},
-    {'role': 'Admin', 'email': 'admin@demo.com', 'pass': 'Demo@1234'},
+    {'role': 'Citizen', 'email': 'aarav.sharma@example.com', 'pass': 'CitizenPass123!'},
+    {'role': 'Operator', 'email': 'rohan.deshmukh@mcmumbai.gov.in', 'pass': 'OperatorPass123!'},
+    {'role': 'Admin', 'email': 'admin@mcmumbai.gov.in', 'pass': 'AdminPass123!'},
   ];
 
   void _selectDemoAccount(Map<String, String> account) {
@@ -71,8 +69,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _emailController.dispose;
-    _passwordController.dispose;
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 

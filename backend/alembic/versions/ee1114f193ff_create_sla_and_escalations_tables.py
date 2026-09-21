@@ -69,7 +69,7 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_case_slas_is_breached'), ['is_breached'], unique=False)
 
     with op.batch_alter_table('cases', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('is_escalated', sa.Boolean(), server_default=sa.text('0'), nullable=False))
+        batch_op.add_column(sa.Column('is_escalated', sa.Boolean(), server_default=sa.text('false'), nullable=False))
         batch_op.create_index(batch_op.f('ix_cases_is_escalated'), ['is_escalated'], unique=False)
 
 

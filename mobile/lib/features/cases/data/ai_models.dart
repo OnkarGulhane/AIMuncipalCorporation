@@ -154,3 +154,57 @@ class AICaseSummaryModel {
     );
   }
 }
+
+class AIVisionAnalyzeModel {
+  final String detectedIssue;
+  final int? categoryId;
+  final String? categoryCode;
+  final String? categoryName;
+  final String suggestedTitle;
+  final String suggestedDescription;
+  final String suggestedPriority;
+  final String suggestedSeverity;
+  final double confidenceScore;
+  final List<String> visualTags;
+  final String recommendedAction;
+  final String? landmarkInferred;
+  final String imageSummary;
+
+  AIVisionAnalyzeModel({
+    required this.detectedIssue,
+    this.categoryId,
+    this.categoryCode,
+    this.categoryName,
+    required this.suggestedTitle,
+    required this.suggestedDescription,
+    required this.suggestedPriority,
+    required this.suggestedSeverity,
+    required this.confidenceScore,
+    required this.visualTags,
+    required this.recommendedAction,
+    this.landmarkInferred,
+    required this.imageSummary,
+  });
+
+  factory AIVisionAnalyzeModel.fromJson(Map<String, dynamic> json) {
+    return AIVisionAnalyzeModel(
+      detectedIssue: json['detected_issue'] ?? '',
+      categoryId: json['category_id'],
+      categoryCode: json['category_code'],
+      categoryName: json['category_name'],
+      suggestedTitle: json['suggested_title'] ?? '',
+      suggestedDescription: json['suggested_description'] ?? '',
+      suggestedPriority: json['suggested_priority'] ?? 'medium',
+      suggestedSeverity: json['suggested_severity'] ?? 'moderate',
+      confidenceScore: (json['confidence_score'] as num?)?.toDouble() ?? 0.0,
+      visualTags: (json['visual_tags'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      recommendedAction: json['recommended_action'] ?? '',
+      landmarkInferred: json['landmark_inferred'],
+      imageSummary: json['image_summary'] ?? '',
+    );
+  }
+}
+
